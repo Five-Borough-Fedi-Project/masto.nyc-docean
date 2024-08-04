@@ -116,3 +116,18 @@ Trying to pipe 7gigs through a `pg_restore` had the restore timing out a lot. I 
 
 The whole thing took around an hour to transfer.
 
+
+### Redis
+
+#### Data Transfer
+
+Unfortunately, the redis at home has TLS disabled, and you can't get to the raw DB files in a DOcean managed redis cluster. That's fine, I recon, as it's one of the reasons we are pushing for this (simplicity and ignorance). It does make migrating the data in our B&M redis cluster a bit more difficult, though. Our options are:
+
+There are two ways to do this: the MIGRATE command and via replication, the latter being an option that is touted as having no downtime (meh, it's inevitable for us). However, neither will work out of the box. In order for MIGRATE to work, both of the servers will either have to be on TLS or not on TLS- there is no mismatching allowed. I would run something like:
+
+`redis-cli -a "localpass" --raw KEYS '*' | xargs redis-cli -a "localpass" MIGRATE mastodon-redis-production-do.ondigitalocean.com 25061 "" 0 5000 COPY AUTH2 default remotepass KEYS`
+
+And it should copy the keys from a local cluster to a remote one. Unfortunately, there is no way to say that the remote db has TLS enabled without using an env variable and setting it for the source DB as well. There is an [SSL argument in the terraform resource](https://registry.terraform.io/providers/digitalocean/digitalocean/latest/docs/resources/database_redis_config#ssl), but flipping it doesn't seem to do anything.
+
+The "migration tool" DOcean offers is jut replication, I think. But the redis db needs to be open to the internet, and that would take a significant amount of network wrangling on its own. I think when migration day comes, we'll decide on how to proceed.
+
