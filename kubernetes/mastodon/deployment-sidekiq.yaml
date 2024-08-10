@@ -67,19 +67,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: mastodon-env
-            - secretRef:
-                name: mastodon
-          env:
-            - name: "DB_PASS"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-postgresql
-                  key: password
-            - name: "REDIS_PASSWORD"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-redis
-                  key: redis-password
           volumeMounts:
             - name: assets
               mountPath: /opt/mastodon/public/assets

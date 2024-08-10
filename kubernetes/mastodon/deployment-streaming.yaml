@@ -38,16 +38,6 @@ spec:
             - configMapRef:
                 name: mastodon-env
           env:
-            - name: "DB_PASS"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-postgresql
-                  key: password
-            - name: "REDIS_PASSWORD"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-redis
-                  key: redis-password
             - name: "PORT"
               value: "4000"
           ports:

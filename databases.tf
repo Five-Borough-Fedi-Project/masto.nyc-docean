@@ -24,14 +24,16 @@ resource "digitalocean_database_user" "mastodon_pg" {
   name       = "mastodon"
 }
 
-resource "digitalocean_database_connection_pool" "mastodon_pg" {
-  cluster_id = digitalocean_database_cluster.mastodon_pg.id
-  name       = "mastodon"
-  mode       = "transaction"
-  size       = 97 # This is the max for the db-s-2vcpu-4gb size
-  db_name    = digitalocean_database_db.mastodon_pg.name
-  user       = digitalocean_database_user.mastodon_pg.name
-}
+### This is kinda fucky. When I use it, the UI gets kinda messed up and sql connections
+### can't find the database.
+# resource "digitalocean_database_connection_pool" "mastodon_pg" {
+#   cluster_id = digitalocean_database_cluster.mastodon_pg.id
+#   name       = "mastodon"
+#   mode       = "transaction"
+#   size       = 97 # This is the max for the db-s-2vcpu-4gb size
+#   db_name    = digitalocean_database_db.mastodon_pg.name
+#   user       = digitalocean_database_user.mastodon_pg.name
+# }
 
 ################## REDIS ##################
 
@@ -51,8 +53,9 @@ resource "digitalocean_database_cluster" "mastodon_redis" {
 
 resource "digitalocean_database_redis_config" "mastodon_redis" {
   cluster_id             = digitalocean_database_cluster.mastodon_redis.id
-  ssl = false # CHANGE THIS AFTER MIGRATION
+  ssl = true # CHANGE THIS AFTER MIGRATION
   persistence = "rdb"
+  maxmemory_policy = "noeviction" # This is the reccomended config for sidekiq
   timeout                = 90
 }
 

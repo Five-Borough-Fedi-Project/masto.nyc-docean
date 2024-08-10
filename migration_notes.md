@@ -131,3 +131,7 @@ And it should copy the keys from a local cluster to a remote one. Unfortunately,
 
 The "migration tool" DOcean offers is jut replication, I think. But the redis db needs to be open to the internet, and that would take a significant amount of network wrangling on its own. I think when migration day comes, we'll decide on how to proceed.
 
+### Elasticsearch / Opensearch
+
+OpenSearch is available as a managed service, so we are going to go with that. It's very new in DOcean, and it [isn't even updated in the terraform docs yet](https://github.com/digitalocean/terraform-provider-digitalocean/issues/1175) but it still works???
+

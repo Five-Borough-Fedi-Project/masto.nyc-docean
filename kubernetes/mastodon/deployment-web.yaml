@@ -36,9 +36,9 @@ spec:
         - name: system
           persistentVolumeClaim:
             claimName: mastodon-system
-        - name: masto-nginx-config
-          configMap:
-            name: masto-nginx-config-prd
+        # - name: masto-nginx-config
+        #   configMap:
+        #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
           image: "ghcr.io/mastodon/mastodon:v4.2.10"
@@ -52,19 +52,7 @@ spec:
           envFrom:
             - configMapRef:
                 name: mastodon-env
-            - secretRef:
-                name: mastodon
           env:
-            - name: "DB_PASS"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-postgresql
-                  key: password
-            - name: "REDIS_PASSWORD"
-              valueFrom:
-                secretKeyRef:
-                  name: mastodon-redis
-                  key: redis-password
             - name: "PORT"
               value: "3000"
           volumeMounts:
@@ -76,25 +64,27 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
-          livenessProbe:
-            tcpSocket:
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-          startupProbe:
-            httpGet:
-              path: /health
-              port: http
-            failureThreshold: 60
-            periodSeconds: 5
-        - name: mastodon-nginx
-          image: nginx:alpine
-          imagePullPolicy: IfNotPresent
-          ports:
-          - containerPort: 80
-          volumeMounts:
-            - name: masto-nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
+          # livenessProbe:
+          #   tcpSocket:
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          # startupProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   failureThreshold: 60
+          #   periodSeconds: 5
+
+
+        # - name: mastodon-nginx
+        #   image: nginx:alpine
+        #   imagePullPolicy: IfNotPresent
+        #   ports:
+        #   - containerPort: 80
+        #   volumeMounts:
+        #     - name: masto-nginx-config
+        #       mountPath: /etc/nginx/nginx.conf
+        #       subPath: nginx.conf
