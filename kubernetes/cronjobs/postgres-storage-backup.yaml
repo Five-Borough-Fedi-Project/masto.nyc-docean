@@ -25,14 +25,15 @@ spec:
               image: tiredofit/db-backup:4.1.3
               imagePullPolicy: IfNotPresent
               command:
+                # - /etc/services.available/10-db-backup/run
                 - /init
                 - backup-now
               volumeMounts:
                 - name: postgres-completion
                   mountPath: "/script"
               env:
-                - name: DEBUG_MODE
-                  value: "TRUE"
+                # - name: DEBUG_MODE
+                #   value: "TRUE"
                 - name: PGSSLMODE
                   value: "require"
                 - name: MODE
