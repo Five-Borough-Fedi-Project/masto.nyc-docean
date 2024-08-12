@@ -9,7 +9,7 @@ resource "digitalocean_database_cluster" "mastodon_pg" {
   node_count = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   maintenance_window {
-    day  = "monday"
+    day  = "thursday"
     hour = "03:00:00"
   }
 }
@@ -46,7 +46,7 @@ resource "digitalocean_database_cluster" "mastodon_redis" {
   node_count = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   maintenance_window {
-    day  = "monday"
+    day  = "tuesday"
     hour = "03:00:00"
   }
 }
@@ -70,7 +70,7 @@ resource "digitalocean_database_cluster" "mastodon_os" {
   node_count = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   maintenance_window {
-    day  = "monday"
+    day  = "wednesday"
     hour = "03:00:00"
   }
 }

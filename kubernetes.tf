@@ -1,11 +1,18 @@
+data "digitalocean_kubernetes_versions" "mastodon" {}
+
 # Careful with changes here. It will probably drop the whole cluster
-# TODO: IAC 
 resource "digitalocean_kubernetes_cluster" "mastodon_k8s" {
   name   = "mastodon-k8s-production"
   region = var.region
+  auto_upgrade = true
   # Grab the latest version slug from `doctl kubernetes options versions`
-  version = "1.30.2-do.0"
+  version = data.digitalocean_kubernetes_versions.mastodon.latest_version
   registry_integration = true
+
+  maintenance_policy {
+    start_time = "03:00"
+    day        = "monday"
+  }
 
   node_pool {
     name       = "worker-pool"
