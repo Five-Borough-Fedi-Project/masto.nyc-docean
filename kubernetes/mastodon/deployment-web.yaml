@@ -50,8 +50,10 @@ spec:
             - -C
             - config/puma.rb
           envFrom:
-            - configMapRef:
-                name: mastodon-env
+          - configMapRef:
+              name: mastodon-env-secret
+          - configMapRef:
+              name: mastodon-env-tf
           env:
             - name: "PORT"
               value: "3000"
@@ -64,21 +66,23 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
-          # livenessProbe:
-          #   tcpSocket:
-          #     port: http
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          # startupProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          #   failureThreshold: 60
-          #   periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
 
-
+        ### Currently nginx is just a standalone pod, but this setup MAY
+        ### be more ideal as a sidecar. It also will probably need some sort
+        ### of shared cache configured that I haven't accounted for here yet.
         # - name: mastodon-nginx
         #   image: nginx:alpine
         #   imagePullPolicy: IfNotPresent

@@ -1,0 +1,23 @@
+##### This file is deprecated. These envs are handled via kubernetes-secrets.tf now.
+
+
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: mastodon-env-tf
+#   labels:
+#     app.kubernetes.io/name: mastodon
+#     app.kubernetes.io/instance: mastodon
+# data:
+#   ALLOWED_PRIVATE_ADDRESSES:
+#   DB_HOST:
+#   DB_NAME:
+#   DB_PORT:
+#   DB_USER:
+#   DB_PASS:
+#   ES_HOST:
+#   ES_PORT:
+#   ES_USER:
+#   ES_PASS:
+#   REDIS_URL:
+#   TRUSTED_PROXY_IP:

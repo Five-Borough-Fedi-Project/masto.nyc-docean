@@ -35,8 +35,10 @@ spec:
             - node
             - ./streaming
           envFrom:
-            - configMapRef:
-                name: mastodon-env
+          - configMapRef:
+              name: mastodon-env-secret
+          - configMapRef:
+              name: mastodon-env-tf
           env:
             - name: "PORT"
               value: "4000"

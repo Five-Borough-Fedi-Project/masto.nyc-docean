@@ -20,27 +20,3 @@ resource "digitalocean_container_registry" "mastodon_k8s" {
   subscription_tier_slug = "starter"
   region = "nyc3" # nyc1 isn't supported?! ugh
 }
-
-# resource "digitalocean_container_registry_docker_credentials" "mastodon_k8s" {
-#   registry_name = digitalocean_container_registry.mastodon_k8s.name
-# }
-
-# provider "kubernetes" {
-#   host  = data.digitalocean_kubernetes_cluster.mastodon_k8s.endpoint
-#   token = data.digitalocean_kubernetes_cluster.mastodon_k8s.kube_config[0].token
-#   cluster_ca_certificate = base64decode(
-#     data.digitalocean_kubernetes_cluster.mastodon_k8s.kube_config[0].cluster_ca_certificate
-#   )
-# }
-
-# resource "kubernetes_secret" "mastodon_k8s" {
-#   metadata {
-#     name = "docker-cfg"
-#   }
-
-#   data = {
-#     ".dockerconfigjson" = digitalocean_container_registry_docker_credentials.mastodon_k8s.docker_credentials
-#   }
-
-#   type = "kubernetes.io/dockerconfigjson"
-# }

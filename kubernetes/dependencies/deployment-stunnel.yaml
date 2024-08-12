@@ -30,4 +30,8 @@ spec:
             - name: STUNNEL_CLIENT
               value: "yes"
             - name: STUNNEL_CONNECT
-              value: "***REMOVED***:25061"
+              valueFrom:
+                secretKeyRef:
+                  name: masto-redis
+                  key: private_host_and_port
+            

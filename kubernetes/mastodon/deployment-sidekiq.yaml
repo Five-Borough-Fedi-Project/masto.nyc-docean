@@ -65,8 +65,10 @@ spec:
             - -q
             - "scheduler"
           envFrom:
-            - configMapRef:
-                name: mastodon-env
+          - configMapRef:
+              name: mastodon-env-secret
+          - configMapRef:
+              name: mastodon-env-tf
           volumeMounts:
             - name: assets
               mountPath: /opt/mastodon/public/assets
