@@ -1,0 +1,11 @@
+### This file is just for reference, as the one used in production is private. 
+
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: postgres-completion
+#   namespace: mastodon
+# data:
+#   postgres.sh: |
+#     #!/bin/bash
+#     curl -I https://uptime.betterstack.com/api/v1/heartbeat/YOUR_UID
