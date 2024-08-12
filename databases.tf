@@ -24,6 +24,14 @@ resource "digitalocean_database_user" "mastodon_pg" {
   name       = "mastodon"
 }
 
+resource "digitalocean_database_firewall" "mastodon_pg" {
+  cluster_id = digitalocean_database_cluster.mastodon_pg.id
+  rule {
+    type  = "k8s"
+    value = digitalocean_kubernetes_cluster.mastodon_k8s.id
+  }
+}
+
 ### This is kinda fucky. When I use it, the UI gets kinda messed up and sql connections
 ### can't find the database.
 # resource "digitalocean_database_connection_pool" "mastodon_pg" {
@@ -59,6 +67,14 @@ resource "digitalocean_database_redis_config" "mastodon_redis" {
   timeout                = 90
 }
 
+resource "digitalocean_database_firewall" "mastodon_redis" {
+  cluster_id = digitalocean_database_cluster.mastodon_redis.id
+  rule {
+    type  = "k8s"
+    value = digitalocean_kubernetes_cluster.mastodon_k8s.id
+  }
+}
+
 ################## OPENSEARCH ##################
 
 resource "digitalocean_database_cluster" "mastodon_os" {
@@ -72,5 +88,13 @@ resource "digitalocean_database_cluster" "mastodon_os" {
   maintenance_window {
     day  = "wednesday"
     hour = "03:00:00"
+  }
+}
+
+resource "digitalocean_database_firewall" "mastodon_os" {
+  cluster_id = digitalocean_database_cluster.mastodon_os.id
+  rule {
+    type  = "k8s"
+    value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
 }

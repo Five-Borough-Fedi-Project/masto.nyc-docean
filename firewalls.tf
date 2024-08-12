@@ -26,7 +26,8 @@ resource "digitalocean_firewall" "k8s_public" {
 }
 
 resource "digitalocean_firewall" "k8s_private" {
-  name = "k8s-private"
+  # the names here just get overwritten so don't bother >_>
+  name = "k8s-0778f05e-49d4-45d3-b777-c83fd31b9320-worker"
   tags = ["k8s:0778f05e-49d4-45d3-b777-c83fd31b9320"]
 
   inbound_rule {
