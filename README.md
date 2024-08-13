@@ -14,5 +14,5 @@ Replace tofu with terraform if that's your drug of choice 🤷
 2. From that page, click on the "Spaces Keys" tab and create a new set of s3 creds for the state. Put them aside for later.
 3. Create a `terraform.tfvars` file. Populate it with the correct `do_token` (from step 1), `state_bucket`, and `state_key` variables.
 4. Run the following command to initialize the state with your s3 creds (from step 2): `tofu init -backend-config="secret_key=YOURSECRETKEY" -backend-config="access_key=YOURACCESSKEY"`
-5. [Follow these steps to set up kubectl.]
+5. [Follow these steps to set up kubectl.](https://docs.digitalocean.com/products/kubernetes/how-to/connect-to-cluster/)
 6. cheers. There's no state lock so try not to step on other people's toes pls ty 🤷
