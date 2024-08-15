@@ -33,7 +33,7 @@ resource "kubernetes_config_map" "mastodon_env_tf" {
     "ES_USER" = digitalocean_database_cluster.mastodon_os.ui_user
     "ES_PASS" = digitalocean_database_cluster.mastodon_os.ui_password
     "REDIS_URL" = format("redis://%s:%s@stunnel.mastodon:6379", digitalocean_database_cluster.mastodon_redis.user, digitalocean_database_cluster.mastodon_redis.password)
-    "TRUSTED_PROXY_IP" = digitalocean_vpc.mastodon_private.ip_range
+    "TRUSTED_PROXY_IP" = "10.0.0.0/8"
   }
 
 }

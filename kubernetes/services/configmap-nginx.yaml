@@ -7,7 +7,7 @@ data:
   nginx.conf: |
     pid        /tmp/nginx.pid;
     events {}
-    error_log /dev/stdout info;
+    error_log /dev/null;
     http 
     {
       client_body_temp_path /tmp/client_temp;
@@ -16,7 +16,7 @@ data:
       uwsgi_temp_path       /tmp/uwsgi_temp;
       scgi_temp_path        /tmp/scgi_temp;
 
-      access_log /dev/stdout;
+      access_log /dev/null;
 
       proxy_cache_path /tmp/proxycache levels=1:2 keys_zone=CACHE:10m inactive=7d max_size=1g;
 
