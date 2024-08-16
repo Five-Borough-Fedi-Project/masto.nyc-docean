@@ -24,6 +24,15 @@ resource "digitalocean_database_user" "mastodon_pg" {
   name       = "mastodon"
 }
 
+resource "digitalocean_database_connection_pool" "mastodon_pg" {
+  cluster_id = digitalocean_database_cluster.mastodon_pg.id
+  name       = digitalocean_database_db.mastodon_pg.name
+  mode       = "transaction"
+  size       = 85
+  db_name    = digitalocean_database_db.mastodon_pg.name
+  user = digitalocean_database_user.mastodon_pg.name
+}
+
 resource "digitalocean_database_firewall" "mastodon_pg" {
   cluster_id = digitalocean_database_cluster.mastodon_pg.id
   rule {
