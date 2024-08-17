@@ -24,3 +24,5 @@ spec:
           value: "true"
         - name: "LT_DISABLE_WEB_UI"
           value: "true"
+        - name: "LT_SSL"
+          value: "False"
