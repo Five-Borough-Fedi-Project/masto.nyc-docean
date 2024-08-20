@@ -6,7 +6,7 @@ metadata:
 data:
   haproxy.cfg: |
     global
-      log stdout format raw local0
+      log stdout format raw local0 warning
       nbthread 4
       cpu-map auto:1/1-4 0-3
 
