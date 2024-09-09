@@ -1,15 +1,16 @@
 
-resource "kubernetes_secret" "mastodon_redis" {
+resource "kubernetes_secret" "mastodon_direct_db" {
   metadata {
-    name = "masto-redis"
+    name = "masto-direct-db"
     namespace = var.masto_ns
   }
 
   data = {
-    "private_host_and_port" = format("%s:%s", digitalocean_database_cluster.mastodon_redis.private_host, digitalocean_database_cluster.mastodon_redis.port)
-    "private_host" = digitalocean_database_cluster.mastodon_redis.private_host
-    "private_uri" = digitalocean_database_cluster.mastodon_redis.private_uri
-    "port" = digitalocean_database_cluster.mastodon_redis.port
+    "postgres_host" = digitalocean_database_cluster.mastodon_pg.private_host
+    "postgres_port" = digitalocean_database_cluster.mastodon_pg.port
+    "postgres_db" = digitalocean_database_db.mastodon_pg.name
+    "postgres_user" = digitalocean_database_user.mastodon_pg.name
+    "postgres_pass" = digitalocean_database_user.mastodon_pg.password
   }
 
   type = "Opaque"

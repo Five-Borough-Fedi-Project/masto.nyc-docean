@@ -33,13 +33,6 @@ spec:
         fsGroup: 991
         runAsGroup: 991
         runAsUser: 991
-      volumes:
-        - name: assets
-          persistentVolumeClaim:
-            claimName: mastodon-assets
-        - name: system
-          persistentVolumeClaim:
-            claimName: mastodon-system
       containers:
         - name: mastodon
           securityContext:
@@ -69,10 +62,5 @@ spec:
               name: mastodon-env-secret
           - configMapRef:
               name: mastodon-env-tf
-          volumeMounts:
-            - name: assets
-              mountPath: /opt/mastodon/public/assets
-            - name: system
-              mountPath: /opt/mastodon/public/system
           resources:
             {}

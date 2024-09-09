@@ -52,28 +52,28 @@ spec:
                 - name: POSTGRES_HOST
                   valueFrom:
                     configMapKeyRef:
-                      name: mastodon-env-tf
-                      key: DB_HOST
+                      name: masto-direct-db
+                      key: postgres_host
                 - name: POSTGRES_PORT
                   valueFrom:
                     configMapKeyRef:
-                      name: mastodon-env-tf
-                      key: DB_PORT
+                      name: masto-direct-db
+                      key: postgres_port
                 - name: POSTGRES_DATABASE
                   valueFrom:
                     configMapKeyRef:
-                      name: mastodon-env-tf
-                      key: DB_NAME
+                      name: masto-direct-db
+                      key: postgres_db
                 - name: POSTGRES_USER
                   valueFrom:
                     configMapKeyRef:
-                      name: mastodon-env-tf
-                      key: DB_USER
+                      name: masto-direct-db
+                      key: postgres_user
                 - name: POSTGRES_PASSWORD
                   valueFrom:
                     configMapKeyRef:
-                      name: mastodon-env-tf
-                      key: DB_PASS
+                      name: masto-direct-db
+                      key: postgres_pass
               imagePullPolicy: IfNotPresent
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
