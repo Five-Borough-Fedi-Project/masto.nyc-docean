@@ -1,5 +1,5 @@
 
-resource "kubernetes_secret" "mastodon_direct_db" {
+resource "kubernetes_config_map" "mastodon_direct_db" {
   metadata {
     name = "masto-direct-db"
     namespace = var.masto_ns
@@ -12,8 +12,6 @@ resource "kubernetes_secret" "mastodon_direct_db" {
     "postgres_user" = digitalocean_database_user.mastodon_pg.name
     "postgres_pass" = digitalocean_database_user.mastodon_pg.password
   }
-
-  type = "Opaque"
 }
 
 resource "kubernetes_config_map" "mastodon_env_tf" {
@@ -33,7 +31,7 @@ resource "kubernetes_config_map" "mastodon_env_tf" {
     "ES_PORT" = digitalocean_database_cluster.mastodon_os.port
     "ES_USER" = digitalocean_database_cluster.mastodon_os.ui_user
     "ES_PASS" = digitalocean_database_cluster.mastodon_os.ui_password
-    "REDIS_URL" = format("redis://%s:%s@haproxy-redis.mastodon:6379", digitalocean_database_cluster.mastodon_redis.user, digitalocean_database_cluster.mastodon_redis.password)
+    "REDIS_URL" = format("rediss://%s:%s@%s:%s", digitalocean_database_cluster.mastodon_redis.user, digitalocean_database_cluster.mastodon_redis.password, digitalocean_database_cluster.mastodon_redis.private_host, digitalocean_database_cluster.mastodon_redis.port)
     # waiting on this to be included on a release:
     # https://github.com/mastodon/mastodon/pull/30717
     # "REDIS_URL" = format(
