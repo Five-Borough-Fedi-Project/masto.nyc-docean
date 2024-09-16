@@ -3,12 +3,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq
+  name: mastodon-sidekiq-ingress
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.3.0-beta.1"
-    app.kubernetes.io/component: sidekiq-all-queues
+    app.kubernetes.io/component: sidekiq-ingress
     app.kubernetes.io/part-of: rails
 spec:
   strategy:
@@ -18,14 +18,14 @@ spec:
     matchLabels:
       app.kubernetes.io/name: mastodon
       app.kubernetes.io/instance: mastodon
-      app.kubernetes.io/component: sidekiq-all-queues
+      app.kubernetes.io/component: sidekiq-ingress
       app.kubernetes.io/part-of: rails
   template:
     metadata:
       labels:
         app.kubernetes.io/name: mastodon
         app.kubernetes.io/instance: mastodon
-        app.kubernetes.io/component: sidekiq-all-queues
+        app.kubernetes.io/component: sidekiq-ingress
         app.kubernetes.io/part-of: rails
     spec:
       serviceAccountName: mastodon
@@ -46,15 +46,7 @@ spec:
             - -c
             - "25"
             - -q
-            - "default,8"
-            - -q
-            - "push,6"
-            - -q
             - "ingress,4"
-            - -q
-            - "mailers,2"
-            - -q
-            - "pull"
           envFrom:
           - configMapRef:
               name: mastodon-env-secret
