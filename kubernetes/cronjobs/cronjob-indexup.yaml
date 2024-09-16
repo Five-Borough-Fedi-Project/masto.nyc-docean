@@ -26,7 +26,7 @@ spec:
                 - bin/tootctl
                 - search
                 - deploy
-                - --only=accounts
+                #- --only=accounts
               envFrom:
                 - configMapRef:
                     name: mastodon-env
@@ -45,7 +45,7 @@ spec:
               terminationMessagePolicy: File
               imagePullPolicy: IfNotPresent
           restartPolicy: OnFailure
-          terminationGracePeriodSeconds: 30
+          #terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
           securityContext: {}
           affinity:

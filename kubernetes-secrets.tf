@@ -31,16 +31,13 @@ resource "kubernetes_config_map" "mastodon_env_tf" {
     "ES_PORT" = digitalocean_database_cluster.mastodon_os.port
     "ES_USER" = digitalocean_database_cluster.mastodon_os.ui_user
     "ES_PASS" = digitalocean_database_cluster.mastodon_os.ui_password
-    "REDIS_URL" = format("rediss://%s:%s@%s:%s", digitalocean_database_cluster.mastodon_redis.user, digitalocean_database_cluster.mastodon_redis.password, digitalocean_database_cluster.mastodon_redis.private_host, digitalocean_database_cluster.mastodon_redis.port)
-    # waiting on this to be included on a release:
-    # https://github.com/mastodon/mastodon/pull/30717
-    # "REDIS_URL" = format(
-    #   "rediss://%s:%s@%s:%s", 
-    #   digitalocean_database_cluster.mastodon_redis.user, 
-    #   digitalocean_database_cluster.mastodon_redis.password,
-    #   digitalocean_database_cluster.mastodon_redis.private_host,
-    #   digitalocean_database_cluster.mastodon_redis.port
-    # )
+    "REDIS_URL" = format(
+      "rediss://%s:%s@%s:%s", 
+      digitalocean_database_cluster.mastodon_redis.user, 
+      digitalocean_database_cluster.mastodon_redis.password, 
+      digitalocean_database_cluster.mastodon_redis.private_host, 
+      digitalocean_database_cluster.mastodon_redis.port
+    )
     "TRUSTED_PROXY_IP" = "10.0.0.0/8"
   }
 }
