@@ -17,7 +17,7 @@ resource "digitalocean_kubernetes_cluster" "mastodon_k8s" {
   node_pool {
     name       = "worker-pool"
     size       = "s-2vcpu-4gb"
-    node_count = 2
+    node_count = 3
   }
 }
 
