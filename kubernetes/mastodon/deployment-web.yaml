@@ -7,9 +7,9 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.3.0-beta.2"
+    app.kubernetes.io/version: "v4.3.0-rc.1"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: mastodon
@@ -34,7 +34,7 @@ spec:
         #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
-          image: "ghcr.io/mastodon/mastodon:v4.3.0-beta.2"
+          image: "ghcr.io/mastodon/mastodon:v4.3.0-rc.1"
           imagePullPolicy: IfNotPresent
           command:
             - bundle
