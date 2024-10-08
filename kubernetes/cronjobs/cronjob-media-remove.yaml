@@ -10,9 +10,9 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.3.0-rc.1"
+    app.kubernetes.io/version: "v4.3.0"
 spec:
-  schedule: 0 0 * * 0
+  schedule: 0 5 14 * 0
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   jobTemplate:
@@ -22,53 +22,19 @@ spec:
           name: mastodon-media-remove
         spec:
           restartPolicy: OnFailure
-          # ensure we run on the same node as the other rails components; only
-          # required when using PVCs that are ReadWriteOnce
-          affinity:
-            podAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                - labelSelector:
-                    matchExpressions:
-                      - key: app.kubernetes.io/part-of
-                        operator: In
-                        values:
-                          - rails
-                  topologyKey: kubernetes.io/hostname
-          volumes:
-            - name: assets
-              persistentVolumeClaim:
-                claimName: mastodon-assets
-            - name: system
-              persistentVolumeClaim:
-                claimName: mastodon-system
           containers:
             - name: mastodon-media-remove
-              image: "ghcr.io/mastodon/mastodon:v4.3.0-rc.1"
+              image: "ghcr.io/mastodon/mastodon:v4.3.0"
               imagePullPolicy: IfNotPresent
               command:
                 - bin/tootctl
                 - media
                 - remove
+                - --prune-profiles
+                - --days=365
+                - --verbose
               envFrom:
-                - configMapRef:
-                    name: mastodon-env
-                - secretRef:
-                    name: mastodon
-              env:
-                - name: "DB_PASS"
-                  valueFrom:
-                    secretKeyRef:
-                      name: mastodon-postgresql
-                      key: password
-                - name: "REDIS_PASSWORD"
-                  valueFrom:
-                    secretKeyRef:
-                      name: mastodon-redis
-                      key: redis-password
-                - name: "PORT"
-                  value: "3000"
-              volumeMounts:
-                - name: assets
-                  mountPath: /opt/mastodon/public/assets
-                - name: system
-                  mountPath: /opt/mastodon/public/system
+              - configMapRef:
+                  name: mastodon-env-secret
+              - configMapRef:
+                  name: mastodon-env-tf
