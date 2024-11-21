@@ -17,9 +17,17 @@ spec:
       labels:
         app: cloudflared
     spec:
+      # https://github.com/cloudflare/cloudflared/issues/1109#issuecomment-2234239403
+      securityContext:
+        runAsGroup: 65532
+        runAsUser: 65532
+        runAsNonRoot: true 
+        sysctls:
+        - name: net.ipv4.ping_group_range
+          value: "0           200000000"
       containers:
       - name: cloudflared
-        image: cloudflare/cloudflared:2024.8.2
+        image: cloudflare/cloudflared:2024.11.1
         args:
         - tunnel
         - --config
@@ -61,3 +69,31 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudflared-sysctl
+  namespace: mastodon
+spec:
+  selector:
+    matchLabels:
+      app: sysctl
+  template:
+    metadata:
+      labels:
+        app: sysctl
+    spec:
+      hostNetwork: yes
+      initContainers:
+        - name: init
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - sysctl -w net.core.rmem_max=7500000 && sysctl -w net.core.wmem_max=7500000
+          securityContext:
+            privileged: true
+      containers:
+        - name: sleep
+          image: filefrog/k8s-hacks:pause
