@@ -1,0 +1,12 @@
+### This file is just for reference, as the one used in production is private. 
+### wget is used because for some reason it is on the image but curl isn't lol
+
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: postgres-completion
+#   namespace: mastodon
+# data:
+#   postgres.sh: |
+#     #!/bin/sh
+#     wget -S --spider https://uptime.betterstack.com/api/v1/heartbeat/ WHATEVER UR UID IS IDK

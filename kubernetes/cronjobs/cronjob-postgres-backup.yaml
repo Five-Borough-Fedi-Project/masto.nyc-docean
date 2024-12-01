@@ -22,6 +22,15 @@ spec:
           containers:
             - name: postgres-backup
               image: eeshugerman/postgres-backup-s3:16
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - "chmod +x /run.sh && /run.sh && /postgres.sh"
+              volumeMounts:
+              - mountPath: /postgres.sh
+                name: postgres-completion
+                subPath: postgres.sh
               env:
                 - name: BACKUP_KEEP_DAYS
                   value: "14"
@@ -75,5 +84,10 @@ spec:
                       name: masto-direct-db
                       key: postgres_pass
               imagePullPolicy: IfNotPresent
+          volumes:
+          - name: postgres-completion
+            configMap:
+              name: postgres-completion
+              defaultMode: 0755
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
