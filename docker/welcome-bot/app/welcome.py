@@ -34,9 +34,8 @@ def root(event: AccountCreatedEvent):
     message = account_id + \
         " \n" \
         "Welcome to Masto.NYC! \n" \
-        "We hope you enjoy your stay here! \n" \
-        "If you are new to Mastodon, we've put together a brief packet with some tips and pointers: \n" \
-        "https://docs.google.com/document/d/1wSD4W_hcuChgiNjZLxRBafcSeOLFRFeBt0Q0e7hDk2U"
+        "We're so glad to have you join us. \n" \
+        "For some tips and pointers on getting started with your new Masto.NYC account, visit https://5bfp.org/welcome.html.\n"
 
     mastodon.status_post(message, visibility='direct')
 
