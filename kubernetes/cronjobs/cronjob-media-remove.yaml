@@ -10,7 +10,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.3.2"
+    app.kubernetes.io/version: "v4.3.3"
 spec:
   schedule: 0 5 14 * 0
   successfulJobsHistoryLimit: 1
@@ -24,7 +24,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: mastodon-media-remove
-              image: "ghcr.io/mastodon/mastodon:v4.3.2"
+              image: "ghcr.io/mastodon/mastodon:v4.3.3"
               imagePullPolicy: IfNotPresent
               command:
                 - bin/tootctl

@@ -1,0 +1,31 @@
+---
+# Source: mastodon/templates/deployment-streaming.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dbg
+  labels:
+    app: dbg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dbg
+  template:
+    metadata:
+      labels:
+        app: dbg
+    spec:
+      containers:
+        - name: dbg
+          image: nicolaka/netshoot
+          command:
+            - /bin/bash
+            - -c
+            - --
+          args:
+            - while true; do sleep 30; done;
+          ports:
+            - name: streaming
+              containerPort: 4000
+              protocol: TCP

@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         app: cloudflared
+        security: web-ext
     spec:
       # https://github.com/cloudflare/cloudflared/issues/1109#issuecomment-2234239403
       securityContext:
