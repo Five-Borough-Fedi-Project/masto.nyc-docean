@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dbg
+  namespace: mastodon
   labels:
     app: dbg
 spec:
@@ -27,5 +28,5 @@ spec:
             - while true; do sleep 30; done;
           ports:
             - name: streaming
-              containerPort: 4000
+              containerPort: 80
               protocol: TCP
