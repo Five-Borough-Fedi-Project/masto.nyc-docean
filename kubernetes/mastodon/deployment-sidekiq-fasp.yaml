@@ -1,0 +1,56 @@
+---
+# Source: mastodon/templates/deployment-sidekiq.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-fasp
+  labels:
+    app.kubernetes.io/name: mastodon
+    app.kubernetes.io/instance: mastodon
+    app.kubernetes.io/version: "v4.4.0"
+    app.kubernetes.io/component: sidekiq-fasp
+    app.kubernetes.io/part-of: rails
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mastodon
+      app.kubernetes.io/instance: mastodon
+      app.kubernetes.io/component: sidekiq-fasp
+      app.kubernetes.io/part-of: rails
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mastodon
+        app.kubernetes.io/instance: mastodon
+        app.kubernetes.io/component: sidekiq-fasp
+        app.kubernetes.io/part-of: rails
+    spec:
+      serviceAccountName: mastodon
+      securityContext:
+        fsGroup: 991
+        runAsGroup: 991
+        runAsUser: 991
+      containers:
+        - name: mastodon
+          securityContext:
+            {}
+          image: "ghcr.io/mastodon/mastodon:v4.4.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - bundle
+            - exec
+            - sidekiq
+            - -c
+            - "25"
+            - -q
+            - "fasp,8"
+          envFrom:
+          - configMapRef:
+              name: mastodon-env-secret
+          - configMapRef:
+              name: mastodon-env-tf
+          resources:
+            {}
