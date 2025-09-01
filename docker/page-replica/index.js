@@ -16,10 +16,10 @@ const path = require("path");
  * @type {Config}
  */
 const CONFIG = {
-  baseUrl: "https://masto.nyc",
-  removeJS: true,
-  addBaseURL: true,
-  cacheFolder: "/tmp/pr",
+  baseUrl: process.env.BASE_URL || "https://example.com",
+  removeJS: process.env.REMOVE_JS ? process.env.REMOVE_JS === "true" : true,
+  addBaseURL: process.env.ADD_BASE_URL ? process.env.ADD_BASE_URL === "true" : true,
+  cacheFolder: process.env.CACHE_FOLDER || "/tmp/page-replica",
 };
 
 /**
@@ -46,8 +46,9 @@ const scrap = async (pathUrl) => {
   try {
     // Launch Puppeteer browser
     const browser = await puppeteer.launch({
-      headless: "new",
+      headless: true, // Puppeteer 24.x: use boolean for headless
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
     // Create a new page in the browser
     const page = await browser.newPage();
