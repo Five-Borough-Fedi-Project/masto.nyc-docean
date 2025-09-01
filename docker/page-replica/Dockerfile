@@ -15,10 +15,10 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # copy only repo files into the container
-COPY page-replica/package*.json ./
+COPY package*.json ./
 RUN npm install --omit=dev
 
-COPY page-replica/ .
+COPY . ./
 
 # 2/ Runtime Stage: Minimal runtime environment
 FROM node:24.7.0-alpine3.21
