@@ -1,3 +1,0 @@
-[submodule "docker/page-replica"]
-	path = docker/page-replica
-	url = https://github.com/Page-Replica/page-replica.git
