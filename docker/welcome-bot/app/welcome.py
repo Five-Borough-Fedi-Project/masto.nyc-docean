@@ -23,6 +23,12 @@ app = FastAPI()
 
 @app.post("/")
 def root(event: AccountCreatedEvent):
+    # Log the properties of AccountCreatedEvent to stdout
+    print("Received AccountCreatedEvent:")
+    print(f"  event: {event.event}")
+    print(f"  created_at: {event.created_at}")
+    print(f"  object.username: {event.object.username}")
+
     #   Set up Mastodon
     mastodon = Mastodon(
         access_token=os.environ.get("WELCOMEACCESSTOKEN", ""),

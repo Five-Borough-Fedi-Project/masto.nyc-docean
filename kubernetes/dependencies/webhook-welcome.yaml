@@ -15,7 +15,7 @@ spec:
       containers:
       - name: welcome-webhook
         # TODO: can the image be terraform-ed or put somewhere else, like github?
-        image: registry.digitalocean.com/mastodon-reg-production/welcome:latest
+        image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/welcome-bot:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
