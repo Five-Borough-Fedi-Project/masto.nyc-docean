@@ -40,6 +40,7 @@ jobs:
           DOCKERFILE_PATH="${{ matrix.dockerfile }}"
           IMAGE_DIR=$(dirname "$DOCKERFILE_PATH")
           IMAGE_NAME=$(basename "$IMAGE_DIR")
-          docker build -t ghcr.io/${{ github.repository_owner }}/masto.nyc-docean/$IMAGE_NAME:latest -t ghcr.io/${{ github.repository_owner }}/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }} "$IMAGE_DIR"
-          docker push ghcr.io/${{ github.repository_owner }}/masto.nyc-docean/$IMAGE_NAME:latest
-          docker push ghcr.io/${{ github.repository_owner }}/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }}
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }} "$IMAGE_DIR"
+          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest
+          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }}
