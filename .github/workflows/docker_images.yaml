@@ -1,0 +1,46 @@
+name: Build and push Docker images to GitHub Container Registry
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker_images.yaml'
+
+jobs:
+  find-dockerfiles:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Find Dockerfiles
+        id: set-matrix
+        run: |
+          files=$(find ./docker -mindepth 2 -maxdepth 2 -name Dockerfile | jq -R . | jq -cs .)
+          echo "matrix=$files" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    needs: find-dockerfiles
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile: ${{ fromJson(needs.find-dockerfiles.outputs.matrix) }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        run: |
+          DOCKERFILE_PATH="${{ matrix.dockerfile }}"
+          IMAGE_DIR=$(dirname "$DOCKERFILE_PATH")
+          IMAGE_NAME=$(basename "$IMAGE_DIR")
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }} "$IMAGE_DIR"
+          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest
+          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }}

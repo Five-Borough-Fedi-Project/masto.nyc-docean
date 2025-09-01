@@ -6,7 +6,8 @@ resource "digitalocean_kubernetes_cluster" "mastodon_k8s" {
   region = var.region
   auto_upgrade = true
   # Grab the latest version slug from `doctl kubernetes options versions`
-  version = data.digitalocean_kubernetes_versions.mastodon.latest_version
+  version = "1.30.9-do.0"
+  #version = data.digitalocean_kubernetes_versions.mastodon.latest_version
   registry_integration = true
 
   maintenance_policy {

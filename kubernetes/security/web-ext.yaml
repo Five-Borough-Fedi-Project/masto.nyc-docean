@@ -1,0 +1,59 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cloudflared-to-cloudflare-nginx-streaming
+  namespace: mastodon
+spec:
+  endpointSelector:
+    matchLabels:
+      app: cloudflared
+  ingress:
+  - fromEndpoints:
+    - {}
+  egress:
+  # kube-dns
+  - toEndpoints:
+      - matchLabels:
+          k8s:io.kubernetes.pod.namespace: kube-system
+    toPorts:
+      - ports:
+          - port: "53"
+            protocol: UDP
+        rules:
+          dns:
+            - matchPattern: "*"
+  # cloudflared
+  - toFQDNs:
+      - matchName: region1.v2.argotunnel.com
+      - matchName: region2.v2.argotunnel.com
+      - matchName: _v2-origintunneld._tcp.argotunnel.com
+      - matchName: cftunnel.com
+      - matchName: h2.cftunnel.com
+      - matchName: quic.cftunnel.com
+    toPorts:
+      - ports:
+          - port: "7844"
+  - toFQDNs:
+      - matchName: update.argotunnel.com
+    toPorts:
+      - ports:
+          - port: "443"
+  - toFQDNs:
+      - matchName: api.cloudflare.com
+    toPorts:
+      - ports:
+          - port: "443"
+  # mastodon-streaming
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/component: streaming
+    toPorts:
+    - ports:
+      - port: "4000"
+  # nginx
+  - toEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: nginx
+    toPorts:
+    - ports:
+      - port: "80"

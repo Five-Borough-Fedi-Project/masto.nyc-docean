@@ -8,10 +8,8 @@
 #     app.kubernetes.io/name: mastodon
 #     app.kubernetes.io/instance: mastodon
 # data:
-#   # This is for libretranslate
 #   DEFAULT_S3_KEY_ID: 
-#   DEFAULT_S3_KEY_SECRET: 
+#   DEFAULT_S3_KEY_SECRET:
 #   DEFAULT_S3_REGION: 
 #   DEFAULT_S3_HOST: 
-#   postgres_backup_betterstack: # This is a curl command to ping better stack
-#   postgres_bucket:
+#   postgres_bucket: 

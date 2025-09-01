@@ -8,6 +8,8 @@ resource "digitalocean_database_cluster" "mastodon_pg" {
   region     = var.region
   node_count = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
+  # This had to be raised to run pg
+  storage_size_mib = 122880
   maintenance_window {
     day  = "thursday"
     hour = "03:00:00"

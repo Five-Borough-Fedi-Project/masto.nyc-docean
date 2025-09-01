@@ -1,16 +1,14 @@
 ---
 # Source: mastodon/templates/deployment-sidekiq.yaml
-# Scheduler needs to be separate so it only ever has one instance running
-# https://docs.joinmastodon.org/admin/scaling/#sidekiq-queues
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq-sched
+  name: mastodon-sidekiq-fasp
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.4.3"
-    app.kubernetes.io/component: sidekiq-sched
+    app.kubernetes.io/component: sidekiq-fasp
     app.kubernetes.io/part-of: rails
 spec:
   strategy:
@@ -20,14 +18,14 @@ spec:
     matchLabels:
       app.kubernetes.io/name: mastodon
       app.kubernetes.io/instance: mastodon
-      app.kubernetes.io/component: sidekiq-sched
+      app.kubernetes.io/component: sidekiq-fasp
       app.kubernetes.io/part-of: rails
   template:
     metadata:
       labels:
         app.kubernetes.io/name: mastodon
         app.kubernetes.io/instance: mastodon
-        app.kubernetes.io/component: sidekiq-sched
+        app.kubernetes.io/component: sidekiq-fasp
         app.kubernetes.io/part-of: rails
     spec:
       serviceAccountName: mastodon
@@ -48,7 +46,7 @@ spec:
             - -c
             - "25"
             - -q
-            - "scheduler"
+            - "fasp,8"
           envFrom:
           - configMapRef:
               name: mastodon-env-secret
