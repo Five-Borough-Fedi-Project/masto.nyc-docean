@@ -3,11 +3,6 @@ name: Build and push Docker images to GitHub Container Registry
 on:
   push:
     paths:
-      - '**.py'
-      - '**.js'
-      - '**.ts'
-      - '**.json'
-      - '**.Dockerfile'
       - 'docker/**'
       - '.github/workflows/docker_images.yaml'
 
@@ -22,7 +17,7 @@ jobs:
       - name: Find Dockerfiles
         id: set-matrix
         run: |
-          files=$(find ./docker -mindepth 2 -maxdepth 2 -name Dockerfile | jq -R . | jq -s .)
+          files=$(find ./docker -mindepth 2 -maxdepth 2 -name Dockerfile | jq -R . | jq -cs .)
           echo "matrix=$files" >> $GITHUB_OUTPUT
 
   build-and-push:
