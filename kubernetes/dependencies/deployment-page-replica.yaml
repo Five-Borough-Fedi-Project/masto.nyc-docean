@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: page-replica
-          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:0c053d6bec1ab7430a5cf572bef6af954bf4996d
+          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:30d4f7b32e55d21f2681d491819a78f5405d9d80
           ports:
             - containerPort: 8080
           env:
