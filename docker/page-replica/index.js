@@ -20,6 +20,7 @@ const CONFIG = {
   removeJS: process.env.REMOVE_JS ? process.env.REMOVE_JS === "true" : true,
   addBaseURL: process.env.ADD_BASE_URL ? process.env.ADD_BASE_URL === "true" : true,
   cacheFolder: process.env.CACHE_FOLDER || "/tmp/page-replica",
+  restrictToBaseUrl: process.env.RESTRICT_TO_BASE_URL ? process.env.RESTRICT_TO_BASE_URL === "true" : false,
 };
 
 /**
@@ -44,6 +45,16 @@ const createFolders = (directory) => {
  */
 const scrap = async (pathUrl) => {
   try {
+    // Check if restriction is enabled and if the URL matches baseUrl
+    if (CONFIG.restrictToBaseUrl) {
+      const baseHost = new URL(CONFIG.baseUrl).host;
+      const targetHost = new URL(pathUrl).host;
+      if (baseHost !== targetHost) {
+        console.warn(`Skipping scrape: ${pathUrl} does not match baseUrl (${CONFIG.baseUrl})`);
+        return;
+      }
+    }
+
     // Launch Puppeteer browser
     const browser = await puppeteer.launch({
       headless: true,

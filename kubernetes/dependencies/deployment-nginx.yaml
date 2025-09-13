@@ -18,7 +18,7 @@ spec:
             name: masto-nginx-config-prd
       containers:
         - name: mastodon-nginx
-          image: docker.io/nginx:1.27.0-alpine-slim
+          image: docker.io/nginx:1.29.1-alpine-slim
           ports:
           - containerPort: 80
             name: http
