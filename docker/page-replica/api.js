@@ -27,8 +27,10 @@ app.listen(port, () => {
 app.get("/page", (req, res) => {
   // Extract the URL from the query parameters
   const url = req.query.url;
+  console.log(`[PAGE] Requested scrape for URL: ${url}`);
   // Call the scrap function to scrape the specified page
   scrap(url);
+  console.log(`[PAGE] Scrape initiated for URL: ${url}`);
   // Send a response without any content
   res.send();
 });
@@ -43,22 +45,29 @@ app.get("/page", (req, res) => {
  */
 app.get("/sitemap", (req, res) => {
   // Create a new instance of Sitemapper
+  const sitemapUrl = req.query.url;
+  console.log(`[SITEMAP] Requested scrape for sitemap: ${sitemapUrl}`);
   const sitemap = new Sitemapper();
   // Fetch the sitemap from the specified URL
-  sitemap.fetch(req.query.url).then(function ({ sites }) {
+  sitemap.fetch(sitemapUrl).then(function ({ sites }) {
     // Extract the list of URLs from the fetched sitemap
     const urls = sites;
+    console.log(`[SITEMAP] Sitemap fetched, ${urls.length} URLs found.`);
     // Set an interval to scrape each URL with a delay of 3000 milliseconds (3 seconds)
     const interval = setInterval(() => {
       const url = urls.shift();
       if (!url) {
         // If there are no more URLs, clear the interval
         clearInterval(interval);
+        console.log(`[SITEMAP] All URLs scraped for sitemap: ${sitemapUrl}`);
         return;
       }
+      console.log(`[SITEMAP] Scraping URL from sitemap: ${url}`);
       // Call the scrap function to scrape the current URL
       scrap(url);
     }, 3000);
+  }).catch((err) => {
+    console.error(`[SITEMAP] Error fetching sitemap: ${sitemapUrl}`, err);
   });
   // Send a response without any content
   res.send();
