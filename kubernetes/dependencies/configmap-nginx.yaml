@@ -25,6 +25,25 @@ data:
         ''      close;
       }
 
+      # Map user agents to identify search engines
+      map $http_user_agent $search_engines {
+        "~bingbot" 1;
+        "~BingPreview" 1;
+        "~Googlebot" 1;
+        # Add more search engines as needed
+      }
+      # Map user agents to identify social networks
+      map $http_user_agent $social_networks {
+        "~*facebook" 1;
+        "~*twitter" 1;
+        # Add more social networks as needed
+      }
+      # Combine search engines and social networks to determine if the user agent is a bot
+      map "$search_engines$social_networks" $is_bot {
+        ""      0;
+        default 1;
+      }
+
       server {
         listen 80;
         listen [::]:80;
@@ -46,9 +65,10 @@ data:
         gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml image/x-icon;
 
         location / {
-          set $is_bot 0;
-          if ($http_user_agent ~* "(googlebot|bingbot)") {
-            set $is_bot 1;
+          # If bot, proxy to internal bot server
+          if ($is_bot) {
+            proxy_pass http://127.0.0.1:8090;
+            break;
           }
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
@@ -65,11 +85,6 @@ data:
           proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
           add_header X-Cached $upstream_cache_status;
           tcp_nodelay on;
-
-          if ($is_bot = 1) {
-            proxy_pass http://page-replica.mastodon:8080$request_uri;
-            break;
-          }
           try_files $uri @proxy;
         }
 
@@ -78,11 +93,8 @@ data:
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header Proxy "";
-          # UGH https://blog.vyvojari.dev/mastodon-behind-a-reverse-proxy-without-ssl-https/
-          # proxy_set_header X-Forwarded-Proto $scheme;
           proxy_set_header X-Forwarded-Proto https;
           proxy_pass_header Server;
-
           proxy_pass http://mastodon-web.mastodon:3000;
           proxy_buffering on;
           proxy_redirect off;
@@ -99,6 +111,18 @@ data:
         }
 
         error_page 404 500 501 502 503 504 /500.html;
+      }
+
+      server {
+        listen 8090;
+        server_name 127.0.0.1;
+        access_log /dev/null;
+        error_log /dev/null;
+        root /tmp/page-replica;
+        index index.html;
+        location / {
+          try_files $uri $uri/ =404;
+        }
       }
 
     }

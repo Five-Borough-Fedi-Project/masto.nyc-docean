@@ -16,6 +16,8 @@ spec:
         - name: masto-nginx-config
           configMap:
             name: masto-nginx-config-prd
+        - name: page-replica-cache
+          emptyDir: {}
       containers:
         - name: mastodon-nginx
           image: docker.io/nginx:1.29.1-alpine-slim
@@ -26,3 +28,23 @@ spec:
             - name: masto-nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
+            - name: page-replica-cache
+              mountPath: /tmp/page-replica
+        - name: page-replica
+          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:3c48b021c88d042b52e2ac44e8c33e4f729fefb4
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BASE_URL
+              value: "https://masto.nyc"
+            - name: REMOVE_JS
+              value: "true"
+            - name: ADD_BASE_URL
+              value: "true"
+            - name: CACHE_FOLDER
+              value: "/tmp/page-replica"
+            - name: RESTRICT_TO_BASE_URL
+              value: "true"
+          volumeMounts:
+            - name: page-replica-cache
+              mountPath: /tmp/page-replica
