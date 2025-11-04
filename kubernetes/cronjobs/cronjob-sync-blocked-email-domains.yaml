@@ -1,0 +1,32 @@
+# Media cleanup
+# We cleanup weekly, just like the default helm chart has set. There hasn't been
+# much of a need to extend or shorten that so far.
+---
+# Source: mastodon/templates/cronjob-media-remove.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-blocked-email-domains
+spec:
+  schedule: 0 3 * * *
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: sync-blocked-email-domains
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sync-blocked-email-domains
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/sync-blocked-email-domains:latest
+              imagePullPolicy: Always
+              env:
+              - name: "MASTODON_HOST"
+                value: "https://masto.nyc"
+              - name: "MASTODON_API_TOKEN"
+                valueFrom:
+                  secretKeyRef:
+                    name: sync-blocked-email-domains
+                    key: key
