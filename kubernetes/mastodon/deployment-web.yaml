@@ -7,7 +7,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.4.8"
+    app.kubernetes.io/version: "v4.5.2"
 spec:
   replicas: 1
   selector:
@@ -34,9 +34,12 @@ spec:
         #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
-          image: "ghcr.io/mastodon/mastodon:v4.4.8"
+          image: "ghcr.io/mastodon/mastodon:v4.5.2"
           imagePullPolicy: IfNotPresent
           command:
+            # - sleep
+            # - infinity
+
             - bundle
             - exec
             - puma
@@ -50,23 +53,30 @@ spec:
           env:
             - name: "PORT"
               value: "3000"
+            - name: "SKIP_EXECUTION"
+              value: "true"
           ports:
             - name: http
               containerPort: 3000
               protocol: TCP
-          livenessProbe:
-            tcpSocket:
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-          startupProbe:
-            httpGet:
-              path: /health
-              port: http
-            failureThreshold: 60
-            periodSeconds: 5
+          # livenessProbe:
+          #   tcpSocket:
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          # startupProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   failureThreshold: 60
+          #   periodSeconds: 5
+
+
+
+
+
 
         ### Currently nginx is just a standalone pod, but this setup MAY
         ### be more ideal as a sidecar. It also will probably need some sort
