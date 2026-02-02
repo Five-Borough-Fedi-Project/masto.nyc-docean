@@ -37,6 +37,10 @@ spec:
         runAsUser: 991
       containers:
         - name: mastodon
+          resources:
+            requests:
+              memory: "1024Mi"
+              cpu: "100m"
           securityContext:
             {}
           image: "ghcr.io/mastodon/mastodon:v4.5.5"
@@ -54,5 +58,3 @@ spec:
               name: mastodon-env-secret
           - configMapRef:
               name: mastodon-env-tf
-          resources:
-            {}
