@@ -58,8 +58,8 @@ resource "digitalocean_database_firewall" "mastodon_pg" {
 
 resource "digitalocean_database_cluster" "mastodon_redis" {
   name       = "mastodon-redis-production"
-  engine     = "redis"
-  version    = "7"
+  engine     = "valkey"
+  version    = "8"
   size       = "db-s-1vcpu-1gb"
   region     = var.region
   node_count = 1
@@ -70,11 +70,8 @@ resource "digitalocean_database_cluster" "mastodon_redis" {
   }
 }
 
-resource "digitalocean_database_redis_config" "mastodon_redis" {
+resource "digitalocean_database_valkey_config" "mastodon_redis" {
   cluster_id             = digitalocean_database_cluster.mastodon_redis.id
-  ssl = true # CHANGE THIS AFTER MIGRATION
-  persistence = "rdb"
-  maxmemory_policy = "noeviction" # This is the reccomended config for sidekiq
   timeout                = 90
 }
 

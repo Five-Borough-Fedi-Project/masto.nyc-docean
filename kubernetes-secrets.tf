@@ -1,5 +1,5 @@
 
-resource "kubernetes_config_map" "mastodon_direct_db" {
+resource "kubernetes_config_map_v1" "mastodon_direct_db" {
   metadata {
     name = "masto-direct-db"
     namespace = var.masto_ns
@@ -14,7 +14,7 @@ resource "kubernetes_config_map" "mastodon_direct_db" {
   }
 }
 
-resource "kubernetes_config_map" "mastodon_env_tf" {
+resource "kubernetes_config_map_v1" "mastodon_env_tf" {
   metadata {
     name = "mastodon-env-tf"
     namespace = var.masto_ns
@@ -42,7 +42,7 @@ resource "kubernetes_config_map" "mastodon_env_tf" {
   }
 }
 
-resource "kubernetes_config_map" "mastodon_env_ha_tf" {
+resource "kubernetes_config_map_v1" "mastodon_env_ha_tf" {
   metadata {
     name = "mastodon-haproxy-env-tf"
     namespace = var.masto_ns
@@ -52,4 +52,19 @@ resource "kubernetes_config_map" "mastodon_env_ha_tf" {
     "REDIS_HOST" = digitalocean_database_cluster.mastodon_redis.private_host
     "REDIS_PORT" = digitalocean_database_cluster.mastodon_redis.port
   }
+}
+
+moved {
+  from = kubernetes_config_map.mastodon_direct_db
+  to   = kubernetes_config_map_v1.mastodon_direct_db
+}
+
+moved {
+  from = kubernetes_config_map.mastodon_env_tf
+  to   = kubernetes_config_map_v1.mastodon_env_tf
+}
+
+moved {
+  from = kubernetes_config_map.mastodon_env_ha_tf
+  to   = kubernetes_config_map_v1.mastodon_env_ha_tf
 }
