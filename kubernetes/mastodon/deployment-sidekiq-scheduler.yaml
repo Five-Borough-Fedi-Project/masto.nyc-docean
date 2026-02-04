@@ -9,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.5.5"
+    app.kubernetes.io/version: "v4.5.6"
     app.kubernetes.io/component: sidekiq-sched
     app.kubernetes.io/part-of: rails
 spec:
@@ -43,7 +43,7 @@ spec:
               cpu: "100m"
           securityContext:
             {}
-          image: "ghcr.io/mastodon/mastodon:v4.5.5"
+          image: "ghcr.io/mastodon/mastodon:v4.5.6"
           imagePullPolicy: IfNotPresent
           command:
             - bundle

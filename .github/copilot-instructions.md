@@ -11,7 +11,7 @@ Purpose: give an AI coding agent immediate, actionable context for working in th
   - Apply infra: `terraform apply` from repo root (ensure `terraform.tfvars` is populated with `do_token`, `state_bucket`, `state_key`). See [README.md](/README.md#L1-L40).
 - **Architecture notes (discoverable patterns)**:
   - Terraform uses DigitalOcean provider and stores state in DO Spaces S3-compatible backend (see `provider.tf`).
-  - Kubernetes resources are managed as plain YAML under `kubernetes/` (no Helm here). Deployments reference prebuilt images (e.g., ghcr.io/mastodon/mastodon:v4.5.5 in the web deployment).
+  - Kubernetes resources are managed as plain YAML under `kubernetes/` (no Helm here). Deployments reference prebuilt images (e.g., ghcr.io/mastodon/mastodon:v4.5.6 in the web deployment).
   - Several components run as separate pods (web, streaming, sidekiq variants, nginx is currently a standalone pod — commented suggestion to consider a sidecar in `deployment-web.yaml`).
   - Cronjobs exist for backups and maintenance under `kubernetes/cronjobs/`.
 
@@ -22,7 +22,7 @@ Purpose: give an AI coding agent immediate, actionable context for working in th
   - Build/run local helper image (page-replica): in `docker/page-replica/` run `docker build -t pagereplica .` then `docker run -p 8080:8080 pagereplica` (service `start` script is `npm start`).
 
 - **Conventions & patterns to follow when editing**:
-  - Images are often pinned to explicit versions (e.g., `ghcr.io/mastodon/mastodon:v4.5.5`). Preserve intentional pinning unless bumping versions — note where the version is declared in `deployment-web.yaml`.
+  - Images are often pinned to explicit versions (e.g., `ghcr.io/mastodon/mastodon:v4.5.6`). Preserve intentional pinning unless bumping versions — note where the version is declared in `deployment-web.yaml`.
   - Pod security: many pods set `fsGroup`, `runAsUser/runAsGroup` (991) in Kubernetes manifests. Keep permissions consistent for shared volumes.
   - Config/secrets separation: env is supplied via `configMapRef` names like `mastodon-env-secret` and `mastodon-env-tf` in `deployment-web.yaml`. Do not hardcode secrets into manifests or new code.
 
