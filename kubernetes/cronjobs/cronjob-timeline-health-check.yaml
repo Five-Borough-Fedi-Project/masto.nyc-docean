@@ -24,7 +24,7 @@ spec:
           containers:
             - name: timeline-health
               # TODO: Update with actual image registry path
-              image: ghcr.io/mastodon/timeline-health:latest
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/timeline-health:f7bad317ef0e142c5633ca2fc57d0108b8cb1911
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
@@ -37,6 +37,3 @@ spec:
                 # ConfigMap contains MASTODON_HOSTNAME, FRESHNESS_THRESHOLD
                 - configMapRef:
                     name: timeline-health-config
-                # Private ConfigMap contains HEARTBEAT_URL
-                - configMapRef:
-                    name: timeline-health-private-config
