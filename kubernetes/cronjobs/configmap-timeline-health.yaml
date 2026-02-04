@@ -1,0 +1,10 @@
+### This file is just for reference, as the one used in production is private.
+### See private-configmap-timeline-health.yaml for the actual values.
+
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: timeline-health-private-config
+#   namespace: mastodon
+# data:
+#   HEARTBEAT_URL: "https://uptime.betterstack.com/api/v1/heartbeat/YOUR_HEARTBEAT_ID"

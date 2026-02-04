@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "masto-timeline-health"
+version = "0.1.0"
+description = "Checks Mastodon timeline freshness and sends heartbeat signals"
+authors = ["seano"]
+readme = "README.md"
+
+[tool.poetry-auto-export]
+output = "requirements.txt"
+without_hashes = true
+without = ["dev"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.32.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

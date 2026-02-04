@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: timeline-health-check
+  namespace: mastodon
+spec:
+  # Run every 5 minutes
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Jobs should complete within 2 minutes
+      activeDeadlineSeconds: 120
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: timeline-health
+              # TODO: Update with actual image registry path
+              image: ghcr.io/mastodon/timeline-health:latest
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+              envFrom:
+                # ConfigMap contains MASTODON_HOSTNAME, FRESHNESS_THRESHOLD
+                - configMapRef:
+                    name: timeline-health-config
+                # Private ConfigMap contains HEARTBEAT_URL
+                - configMapRef:
+                    name: timeline-health-private-config
