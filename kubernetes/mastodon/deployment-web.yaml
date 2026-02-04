@@ -30,7 +30,7 @@ spec:
         runAsGroup: 991
         runAsUser: 991
         # - name: masto-nginx-config
-        #   configMap:
+        #   configMap: 
         #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
