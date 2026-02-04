@@ -62,7 +62,7 @@ spec:
               protocol: TCP
           # livenessProbe: 
           #   tcpSocket:
-          #     port: http
+          #     port: http 
           # readinessProbe:
           #   httpGet:
           #     path: /health
