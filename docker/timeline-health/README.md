@@ -62,16 +62,3 @@ The tool uses the REST API endpoint `/api/v1/timelines/public?remote=false&only_
 |------|---------|
 | 0 | Timeline is fresh, heartbeat sent successfully |
 | 1 | Timeline is stale, or heartbeat failed |
-
-### Deploying
-
-```bash
-# Apply the public configmap
-kubectl apply -f kubernetes/cronjobs/configmap-timeline-health.yaml
-
-# Apply the private configmap (edit private-configmap-timeline-health.yaml with your actual heartbeat URL first)
-kubectl apply -f kubernetes/cronjobs/private-configmap-timeline-health.yaml
-
-# Apply the cronjob
-kubectl apply -f kubernetes/cronjobs/timeline-health-check.yaml
-```
