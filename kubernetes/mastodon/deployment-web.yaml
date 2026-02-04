@@ -41,9 +41,6 @@ spec:
           image: "ghcr.io/mastodon/mastodon:v4.5.6"
           imagePullPolicy: IfNotPresent
           command:
-            # - sleep
-            # - infinity
-
             - bundle
             - exec
             - puma
