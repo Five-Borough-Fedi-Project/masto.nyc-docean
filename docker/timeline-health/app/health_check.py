@@ -3,8 +3,8 @@
 Timeline Health Check
 
 Connects to a Mastodon instance's public timeline API to check if recent posts exist.
-If the latest post is within the specified freshness threshold, sends a GET request
-to a health check URL (e.g., BetterStack heartbeat).
+If the newest post (by created_at) is within the specified freshness threshold, sends a
+GET request to a health check URL (e.g., BetterStack heartbeat).
 
 Usage:
     python -m app.health_check --hostname masto.nyc --freshness 3000 --heartbeat-url https://uptime.betterstack.com/api/v1/heartbeat/xxx
@@ -12,6 +12,7 @@ Usage:
 Environment variables can also be used:
     MASTODON_HOSTNAME: The Mastodon instance hostname (e.g., masto.nyc)
     FRESHNESS_THRESHOLD: Maximum age in seconds for posts to be considered fresh (default: 3000)
+    SAMPLE_SIZE: Number of posts to fetch and check for the newest one (default: 20)
     HEARTBEAT_URL: URL to GET when timeline is healthy
 """
 
@@ -25,24 +26,27 @@ from typing import Optional
 import requests
 
 
-def get_latest_public_post(hostname: str) -> Optional[dict]:
+def get_newest_public_post(hostname: str, sample_size: int = 20) -> Optional[dict]:
     """
-    Fetch the latest post from the public timeline.
+    Fetch posts from the public timeline and return the newest one.
     
-    Uses the REST API endpoint /api/v1/timelines/public which returns
-    an array of Status objects.
+    The timeline may not be in strict chronological order since posts are
+    displayed in the order they are received, not necessarily when they
+    were created. This function fetches multiple posts and finds the one
+    with the most recent created_at timestamp.
     
     Args:
         hostname: The Mastodon instance hostname
+        sample_size: Number of posts to fetch (default: 20)
     
     Returns:
-        The latest status dict, or None if unavailable
+        The newest status dict by created_at, or None if unavailable
     """
     timeline_url = f"https://{hostname}/api/v1/timelines/public"
     params = {
         "remote": "false",      # Include local posts
         "only_media": "false",  # Don't filter by media
-        "limit": 1              # We only need the most recent one
+        "limit": sample_size
     }
     
     try:
@@ -50,11 +54,34 @@ def get_latest_public_post(hostname: str) -> Optional[dict]:
         response.raise_for_status()
         statuses = response.json()
         
-        if statuses and len(statuses) > 0:
-            return statuses[0]
-        else:
+        if not statuses or len(statuses) == 0:
             print("No posts found on public timeline")
             return None
+        
+        print(f"Fetched {len(statuses)} posts from timeline")
+        
+        # Find the newest post by created_at timestamp
+        newest_post = None
+        newest_time = None
+        
+        for status in statuses:
+            created_at_str = status.get("created_at")
+            if not created_at_str:
+                continue
+            
+            try:
+                post_time = parse_mastodon_datetime(created_at_str)
+                if newest_time is None or post_time > newest_time:
+                    newest_time = post_time
+                    newest_post = status
+            except ValueError:
+                continue
+        
+        if newest_post is None:
+            print("No posts with valid timestamps found")
+            return None
+        
+        return newest_post
             
     except requests.exceptions.RequestException as e:
         print(f"Error fetching public timeline: {e}")
@@ -84,25 +111,26 @@ def parse_mastodon_datetime(datetime_str: str) -> datetime:
     return datetime.fromisoformat(datetime_str)
 
 
-def check_timeline_freshness(hostname: str, freshness_threshold: int) -> bool:
+def check_timeline_freshness(hostname: str, freshness_threshold: int, sample_size: int = 20) -> bool:
     """
     Check if the timeline has fresh posts.
     
     Args:
         hostname: The Mastodon instance hostname
         freshness_threshold: Maximum age in seconds for posts to be considered fresh
+        sample_size: Number of posts to fetch and check for the newest one
         
     Returns:
-        True if the latest post is within the freshness threshold
+        True if the newest post is within the freshness threshold
     """
-    latest_post = get_latest_public_post(hostname)
+    newest_post = get_newest_public_post(hostname, sample_size)
     
-    if latest_post is None:
-        print("Could not retrieve latest post - timeline check failed")
+    if newest_post is None:
+        print("Could not retrieve posts - timeline check failed")
         return False
     
-    post_id = latest_post.get("id", "unknown")
-    created_at_str = latest_post.get("created_at")
+    post_id = newest_post.get("id", "unknown")
+    created_at_str = newest_post.get("created_at")
     
     if not created_at_str:
         print(f"Post {post_id} has no created_at field")
@@ -113,7 +141,7 @@ def check_timeline_freshness(hostname: str, freshness_threshold: int) -> bool:
         now = datetime.now(timezone.utc)
         age_seconds = (now - post_time).total_seconds()
         
-        print(f"Latest post ID: {post_id}")
+        print(f"Newest post ID: {post_id}")
         print(f"Post created at: {created_at_str}")
         print(f"Post age: {age_seconds:.1f} seconds")
         print(f"Freshness threshold: {freshness_threshold} seconds")
@@ -169,6 +197,12 @@ def main():
         help="Maximum age in seconds for posts to be considered fresh (default: 3000)"
     )
     parser.add_argument(
+        "--sample-size",
+        type=int,
+        default=int(os.environ.get("SAMPLE_SIZE", "20")),
+        help="Number of posts to fetch and check for the newest one (default: 20)"
+    )
+    parser.add_argument(
         "--heartbeat-url",
         type=str,
         default=os.environ.get("HEARTBEAT_URL", ""),
@@ -191,12 +225,13 @@ def main():
     print(f"=" * 60)
     print(f"Hostname: {args.hostname}")
     print(f"Freshness threshold: {args.freshness} seconds")
+    print(f"Sample size: {args.sample_size} posts")
     print(f"Heartbeat URL: {args.heartbeat_url}")
     print(f"=" * 60)
     
     # Check timeline freshness
     print("\n[1/2] Checking timeline freshness...")
-    is_fresh = check_timeline_freshness(args.hostname, args.freshness)
+    is_fresh = check_timeline_freshness(args.hostname, args.freshness, args.sample_size)
     
     if not is_fresh:
         print("\n[2/2] Skipping heartbeat - timeline is stale")

@@ -4,7 +4,10 @@
 # apiVersion: v1
 # kind: ConfigMap
 # metadata:
-#   name: timeline-health-private-config
+#   name: timeline-health-config
 #   namespace: mastodon
 # data:
 #   HEARTBEAT_URL: "https://uptime.betterstack.com/api/v1/heartbeat/YOUR_HEARTBEAT_ID"
+#   MASTODON_HOSTNAME: "masto.nyc"
+#   FRESHNESS_THRESHOLD: "60"
+#   SAMPLE_SIZE: "20"

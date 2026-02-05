@@ -11,6 +11,7 @@ COPY ./app /code/app
 # Default environment variables (can be overridden)
 ENV MASTODON_HOSTNAME=""
 ENV FRESHNESS_THRESHOLD="60"
+ENV SAMPLE_SIZE="20"
 ENV HEARTBEAT_URL=""
 
 ENTRYPOINT ["python", "-m", "app.health_check"]
