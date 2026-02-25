@@ -24,7 +24,7 @@ spec:
           containers:
             - name: timeline-health
               # TODO: Update with actual image registry path
-              image: docker pull ghcr.io/five-borough-fedi-project/masto.nyc-docean/timeline-health:a377b9f7e265d92c9834974b0813aeb1bb1c3f52
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/timeline-health:a377b9f7e265d92c9834974b0813aeb1bb1c3f52
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
@@ -34,6 +34,5 @@ spec:
                   memory: "128Mi"
                   cpu: "100m"
               envFrom:
-                # ConfigMap contains MASTODON_HOSTNAME, FRESHNESS_THRESHOLD
                 - configMapRef:
                     name: timeline-health-config
