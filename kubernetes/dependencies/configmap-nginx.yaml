@@ -118,7 +118,7 @@ data:
         server_name 127.0.0.1;
         access_log /dev/null;
         error_log /dev/null;
-        root /tmp/page-replica;
+        root /tmp/page-replica/masto.nyc;
         index index.html;
         location / {
           try_files $uri $uri/ =404;

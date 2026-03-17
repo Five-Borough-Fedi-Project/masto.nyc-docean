@@ -31,7 +31,7 @@ spec:
             - name: page-replica-cache
               mountPath: /tmp/page-replica
         - name: page-replica
-          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:3c48b021c88d042b52e2ac44e8c33e4f729fefb4
+          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:f9588ebca4eb5557582f240bc859d44b01d79c1e265b07fa5067d27681fd8f9c
           ports:
             - containerPort: 8080
           env:
@@ -45,6 +45,8 @@ spec:
               value: "/tmp/page-replica"
             - name: RESTRICT_TO_BASE_URL
               value: "true"
+            - name: AUTO_SCRAPE_PAGES
+              value: "https://masto.nyc/,https://masto.nyc/about,https://masto.nyc/explore"
           volumeMounts:
             - name: page-replica-cache
               mountPath: /tmp/page-replica
