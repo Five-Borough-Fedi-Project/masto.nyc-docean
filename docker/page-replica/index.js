@@ -58,10 +58,17 @@ const scrap = async (pathUrl) => {
 
     console.log(`[SCRAPE] Launching browser for ${pathUrl}`);
     // Launch Puppeteer browser
-    const browser = await puppeteer.launch({
+    const launchOptions = {
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+      protocolTimeout: 120000,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--single-process"],
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      console.log(`[SCRAPE] Using executable: ${launchOptions.executablePath}`);
+    }
+    const browser = await puppeteer.launch(launchOptions);
+    console.log(`[SCRAPE] Browser launched`);
     // Create a new page in the browser
     const page = await browser.newPage();
     await page.setUserAgent("Mozilla/5.0 (compatible; PageReplica/1.0)");
@@ -106,6 +113,7 @@ const scrap = async (pathUrl) => {
   } catch (error) {
     // Log any errors that occur during the scraping process
     console.error(`[SCRAPE] Error scraping ${pathUrl}:`, error);
+    throw error;
   }
 };
 
