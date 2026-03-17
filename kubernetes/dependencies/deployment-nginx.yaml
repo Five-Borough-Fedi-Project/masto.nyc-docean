@@ -31,7 +31,7 @@ spec:
             - name: page-replica-cache
               mountPath: /tmp/page-replica
         - name: page-replica
-          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:5bf41986a6b3ba65c90d594ad3bd46a52fa8f95f 
+          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:467272aed2986a39921ece74650dfef5b30eee3b  
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

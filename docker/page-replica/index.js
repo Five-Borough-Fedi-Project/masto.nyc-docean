@@ -42,6 +42,7 @@ const createFolders = (directory) => {
 /**
  * Main scraping function.
  * @param {string} pathUrl - The URL to scrape.
+ * @param {string} pathUrl - The URL to scrape.
  */
 const scrap = async (pathUrl) => {
   try {
@@ -50,11 +51,12 @@ const scrap = async (pathUrl) => {
       const baseHost = new URL(CONFIG.baseUrl).host;
       const targetHost = new URL(pathUrl).host;
       if (baseHost !== targetHost) {
-        console.warn(`Skipping scrape: ${pathUrl} does not match baseUrl (${CONFIG.baseUrl})`);
+        console.warn(`[SCRAPE] Skipping: ${pathUrl} does not match baseUrl (${CONFIG.baseUrl})`);
         return;
       }
     }
 
+    console.log(`[SCRAPE] Launching browser for ${pathUrl}`);
     // Launch Puppeteer browser
     const browser = await puppeteer.launch({
       headless: true,
@@ -62,10 +64,18 @@ const scrap = async (pathUrl) => {
     });
     // Create a new page in the browser
     const page = await browser.newPage();
+    await page.setUserAgent("Mozilla/5.0 (compatible; PageReplica/1.0)");
+
+    page.on("response", (resp) => {
+      console.log(`[SCRAPE] Response: ${resp.status()} ${resp.url()}`);
+    });
+
+    console.log(`[SCRAPE] Navigating to ${pathUrl} (timeout: 60s, waitUntil: networkidle2)`);
     // Navigate to the specified URL and wait until the page is fully loaded
-    await page.goto(pathUrl, { waitUntil: "networkidle2" });
+    await page.goto(pathUrl, { waitUntil: "networkidle2", timeout: 60000 });
     // Get the outer HTML of the entire document
     let html = await page.evaluate(() => document.documentElement.outerHTML);
+    console.log(`[SCRAPE] Page loaded, HTML length: ${html.length}`);
 
     // Remove JavaScript code from the HTML if configured to do so
     if (CONFIG.removeJS) {
@@ -73,6 +83,7 @@ const scrap = async (pathUrl) => {
         /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
         "",
       );
+      console.log(`[SCRAPE] Scripts removed, HTML length: ${html.length}`);
     }
 
     // Add base URL to the head if configured to do so
@@ -83,15 +94,18 @@ const scrap = async (pathUrl) => {
     // Create necessary folders for caching based on the URL
     createFolders(pathUrl);
     // Generate a path for caching by removing the protocol (http/https)
-    const path = pathUrl.replace(/(^\w+:|^)\/\//, "");
+    const cachePath = pathUrl.replace(/(^\w+:|^)\/\//, "");
+    const filePath = `${CONFIG.cacheFolder}/${cachePath}/index.html`;
     // Write the HTML content to a file in the cache folder
-    fs.writeFileSync(`${CONFIG.cacheFolder}/${path}/index.html`, html);
+    fs.writeFileSync(filePath, html);
+    console.log(`[SCRAPE] Cached to ${filePath} (${html.length} bytes)`);
 
     // Close the Puppeteer browser
     await browser.close();
+    console.log(`[SCRAPE] Done: ${pathUrl}`);
   } catch (error) {
     // Log any errors that occur during the scraping process
-    console.error(error);
+    console.error(`[SCRAPE] Error scraping ${pathUrl}:`, error);
   }
 };
 
