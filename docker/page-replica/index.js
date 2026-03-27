@@ -61,7 +61,14 @@ const scrap = async (pathUrl) => {
     const launchOptions = {
       headless: true,
       protocolTimeout: 120000,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--single-process"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--disable-software-rasterizer",
+      ],
     };
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
       launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;

@@ -31,7 +31,7 @@ spec:
             - name: page-replica-cache
               mountPath: /tmp/page-replica
         - name: page-replica
-          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:6d8f8694db40510370540f1ecf6b277b27057a06   
+          image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/page-replica:2e89a9058af7e993a49f30680d18835923e1f5a566f172248b0af4b9aac58df5    
           imagePullPolicy: Always
           resources:
             requests:
