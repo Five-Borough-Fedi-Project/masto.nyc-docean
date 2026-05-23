@@ -37,8 +37,10 @@ spec:
         - name: mastodon
           resources:
             requests:
-              memory: "775Mi"
+              memory: "500Mi"
               cpu: "100m"
+            limits:
+              memory: "900Mi"
           securityContext:
             {}
           image: "ghcr.io/mastodon/mastodon:v4.5.10"

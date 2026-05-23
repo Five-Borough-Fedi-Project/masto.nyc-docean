@@ -53,4 +53,8 @@ spec:
           - configMapRef:
               name: mastodon-env-tf
           resources:
-            {}
+            requests:
+              memory: "500Mi"
+              cpu: "100m"
+            limits:
+              memory: "900Mi"
