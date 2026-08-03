@@ -1,27 +1,30 @@
-# Media cleanup
-# We cleanup weekly, just like the default helm chart has set. There hasn't been
-# much of a need to extend or shorten that so far.
+# Remote profile media (avatars + headers) cleanup
+# `media remove --prune-profiles` is mutually exclusive with the plain
+# `media remove` attachment sweep in cronjob-media-remove.yaml -- it touches
+# only avatars/headers, so the two jobs complement rather than duplicate.
+#
+# Without --include-follows this only prunes accounts that neither follow nor
+# are followed by anyone local, which is the conservative default we want.
 #
 # Weekly cleanup rotation (all at 05:00, one per day, no two ever concurrent):
-#   Sun  media remove --days=90        (this file)
-#   Mon  media remove --prune-profiles
+#   Sun  media remove --days=90        (cronjob-media-remove.yaml)
+#   Mon  media remove --prune-profiles (this file)
 #   Tue  preview_cards remove
 #   Wed  statuses remove
 #   Thu  -- buffer for a long statuses run --
 #   Fri  media remove-orphans          (sweeps files the above orphaned)
 #   Sat  -- buffer --
 ---
-# Source: mastodon/templates/cronjob-media-remove.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: mastodon-media-remove
+  name: mastodon-media-prune-profiles
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.6.4"
 spec:
-  schedule: 0 5 * * 0
+  schedule: 0 5 * * 1
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
@@ -32,17 +35,18 @@ spec:
       backoffLimit: 1
       template:
         metadata:
-          name: mastodon-media-remove
+          name: mastodon-media-prune-profiles
         spec:
           restartPolicy: OnFailure
           containers:
-            - name: mastodon-media-remove
+            - name: mastodon-media-prune-profiles
               image: "ghcr.io/mastodon/mastodon:v4.6.4"
               imagePullPolicy: IfNotPresent
               command:
                 - bin/tootctl
                 - media
                 - remove
+                - --prune-profiles
                 - --days=180
                 - --verbose
               envFrom:

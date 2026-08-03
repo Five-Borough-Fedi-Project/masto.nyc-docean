@@ -203,7 +203,7 @@ files = [
 ]
 
 [package.dependencies]
-typing-extensions = {version = ">=4.6.3", markers = "python_version < \"3.13\""}
+typing-extensions = {version = ">=4.6.4", markers = "python_version < \"3.13\""}
 
 [package.extras]
 test = ["pytest (>=6)"]
@@ -417,7 +417,7 @@ files = [
 ]
 
 [package.dependencies]
-typing-extensions = ">=4.6.3,<4.7.0 || >4.7.0"
+typing-extensions = ">=4.6.4,<4.7.0 || >4.7.0"
 
 [[package]]
 name = "python-dateutil"

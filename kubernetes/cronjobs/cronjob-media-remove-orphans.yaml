@@ -1,50 +1,50 @@
-# Media cleanup
-# We cleanup weekly, just like the default helm chart has set. There hasn't been
-# much of a need to extend or shorten that so far.
+# Orphaned storage file sweep
+# Scans object storage for files with no corresponding media attachment row.
+# Deliberately runs last in the week: the DB-level removals earlier in the
+# rotation (especially `statuses remove`) are what strand files in the first
+# place, so sweeping afterwards catches their leftovers in the same cycle.
+# `media remove-orphans` takes no --verbose flag.
 #
 # Weekly cleanup rotation (all at 05:00, one per day, no two ever concurrent):
-#   Sun  media remove --days=90        (this file)
+#   Sun  media remove --days=90        (cronjob-media-remove.yaml)
 #   Mon  media remove --prune-profiles
 #   Tue  preview_cards remove
 #   Wed  statuses remove
 #   Thu  -- buffer for a long statuses run --
-#   Fri  media remove-orphans          (sweeps files the above orphaned)
+#   Fri  media remove-orphans          (this file)
 #   Sat  -- buffer --
 ---
-# Source: mastodon/templates/cronjob-media-remove.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: mastodon-media-remove
+  name: mastodon-media-remove-orphans
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.6.4"
 spec:
-  schedule: 0 5 * * 0
+  schedule: 0 5 * * 5
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
-      # 23h ceiling guarantees this cannot bleed into the next day's job
+      # 23h ceiling guarantees this cannot bleed into Saturday
       activeDeadlineSeconds: 82800
       backoffLimit: 1
       template:
         metadata:
-          name: mastodon-media-remove
+          name: mastodon-media-remove-orphans
         spec:
           restartPolicy: OnFailure
           containers:
-            - name: mastodon-media-remove
+            - name: mastodon-media-remove-orphans
               image: "ghcr.io/mastodon/mastodon:v4.6.4"
               imagePullPolicy: IfNotPresent
               command:
                 - bin/tootctl
                 - media
-                - remove
-                - --days=180
-                - --verbose
+                - remove-orphans
               envFrom:
               - configMapRef:
                   name: mastodon-env-secret

@@ -1,27 +1,26 @@
-# Media cleanup
-# We cleanup weekly, just like the default helm chart has set. There hasn't been
-# much of a need to extend or shorten that so far.
+# Preview card (link thumbnail) cleanup
+# tootctl's own default here is 180 days; we use 90 to match the rest of the
+# cleanup rotation.
 #
 # Weekly cleanup rotation (all at 05:00, one per day, no two ever concurrent):
-#   Sun  media remove --days=90        (this file)
+#   Sun  media remove --days=90        (cronjob-media-remove.yaml)
 #   Mon  media remove --prune-profiles
-#   Tue  preview_cards remove
+#   Tue  preview_cards remove          (this file)
 #   Wed  statuses remove
 #   Thu  -- buffer for a long statuses run --
 #   Fri  media remove-orphans          (sweeps files the above orphaned)
 #   Sat  -- buffer --
 ---
-# Source: mastodon/templates/cronjob-media-remove.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: mastodon-media-remove
+  name: mastodon-preview-cards-remove
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.6.4"
 spec:
-  schedule: 0 5 * * 0
+  schedule: 0 5 * * 2
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
@@ -32,16 +31,16 @@ spec:
       backoffLimit: 1
       template:
         metadata:
-          name: mastodon-media-remove
+          name: mastodon-preview-cards-remove
         spec:
           restartPolicy: OnFailure
           containers:
-            - name: mastodon-media-remove
+            - name: mastodon-preview-cards-remove
               image: "ghcr.io/mastodon/mastodon:v4.6.4"
               imagePullPolicy: IfNotPresent
               command:
                 - bin/tootctl
-                - media
+                - preview_cards
                 - remove
                 - --days=180
                 - --verbose

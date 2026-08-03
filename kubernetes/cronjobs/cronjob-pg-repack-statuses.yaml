@@ -1,0 +1,98 @@
+# # Bloat reclamation for public.statuses
+# # Derived from the ad-hoc `kubectl run pg-repack ...` one-liner. Deliberately
+# # lands on Saturday: `statuses remove` (Wed) is what creates the dead tuples
+# # this reclaims, and Saturday is otherwise idle in the cleanup rotation.
+# #
+# # Connects via `masto-direct-db`, NOT `mastodon-env-tf`. That is load-bearing:
+# # mastodon-env-tf points at the pgbouncer connection pool, which is in
+# # transaction mode, and pg_repack depends on session-level advisory locks and
+# # temp state that transaction pooling breaks. masto-direct-db is the cluster's
+# # private_host -- a direct connection.
+# #
+# # Runs as `mastodon` rather than doadmin (no doadmin credential exists in this
+# # cluster). The tables were restored with --role=mastodon, so mastodon owns
+# # public.statuses, and -k (--no-superuser-check) lets the table owner proceed.
+# #
+# # PREREQUISITE, one-time, as doadmin -- this job fails until it is done:
+# #   CREATE EXTENSION pg_repack;   -- must be version 1.5.0 to match the image
+# #   GRANT USAGE ON SCHEMA repack TO mastodon;
+# ---
+# apiVersion: batch/v1
+# kind: CronJob
+# metadata:
+#   name: pg-repack-statuses
+#   namespace: mastodon
+# spec:
+#   # Cron cannot express "every 2 weeks", so this fires weekly and the container
+#   # skips odd weeks. Do NOT try to encode this as a day-of-month range: cron ORs
+#   # day-of-month against day-of-week when both are restricted, so `* * 1-7,15-21 * 6`
+#   # would fire every day of those weeks rather than only on Saturdays.
+#   schedule: "0 12 * * 6"
+#   concurrencyPolicy: Forbid
+#   successfulJobsHistoryLimit: 1
+#   failedJobsHistoryLimit: 1
+#   jobTemplate:
+#     spec:
+#       # 12h ceiling: finishes by midnight, clear of Sunday's 01:30 postgres-backup
+#       # and 05:00 media remove. A rewrite of statuses should never approach this.
+#       activeDeadlineSeconds: 43200
+#       # No retries. This rewrites a large table; if it fails, we want to look at
+#       # why rather than immediately hammer the DB again.
+#       backoffLimit: 0
+#       template:
+#         metadata:
+#           name: pg-repack-statuses
+#         spec:
+#           restartPolicy: Never
+#           containers:
+#             - name: pg-repack-statuses
+#               image: hartmutcouk/pg-repack-docker:1.5.0
+#               imagePullPolicy: IfNotPresent
+#               # The image is built on postgres:16, whose ENTRYPOINT is
+#               # docker-entrypoint.sh. Setting command: bypasses it -- pg_repack
+#               # needs none of that server bootstrap.
+#               command:
+#                 - /bin/sh
+#                 - -c
+#               args:
+#                 - |
+#                   set -eu
+#                   # Weeks-since-epoch parity. Exact 14-day cadence with no
+#                   # year-boundary wrap (unlike `date +%W`). Flip -ne to -eq to
+#                   # shift the cadence by one week.
+#                   if [ $(( $(date +%s) / 604800 % 2 )) -ne 0 ]; then
+#                     echo "Odd week -- skipping. Next repack is in 7 days."
+#                     exit 0
+#                   fi
+#                   echo "Repacking public.statuses on ${PGHOST}..."
+#                   exec pg_repack \
+#                     -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+#                     -k --table public.statuses --no-order
+#               env:
+#                 - name: PGSSLMODE
+#                   value: require
+#                 - name: PGHOST
+#                   valueFrom:
+#                     configMapKeyRef:
+#                       name: masto-direct-db
+#                       key: postgres_host
+#                 - name: PGPORT
+#                   valueFrom:
+#                     configMapKeyRef:
+#                       name: masto-direct-db
+#                       key: postgres_port
+#                 - name: PGDATABASE
+#                   valueFrom:
+#                     configMapKeyRef:
+#                       name: masto-direct-db
+#                       key: postgres_db
+#                 - name: PGUSER
+#                   valueFrom:
+#                     configMapKeyRef:
+#                       name: masto-direct-db
+#                       key: postgres_user
+#                 - name: PGPASSWORD
+#                   valueFrom:
+#                     configMapKeyRef:
+#                       name: masto-direct-db
+#                       key: postgres_pass
