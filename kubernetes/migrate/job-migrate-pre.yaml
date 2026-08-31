@@ -1,0 +1,67 @@
+### Pre-deployment migrations. Run this BEFORE rolling the deployments to the new
+### image, while the old version is still serving traffic. These migrations are
+### backwards-compatible by design, which is what makes the rollout low-downtime.
+###
+### Per upgrade: bump the image tag AND the job name (Job names are immutable, so a
+### completed job of the same name must be deleted before re-applying).
+###
+### Note the DB_PORT override: DB_HOST/DB_PORT in mastodon-env-tf point at the
+### pgbouncer pool (25061) in transaction mode, and Mastodon cannot run db:migrate
+### through pgbouncer. masto-direct-db carries the direct port (25060).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mastodon-migrate-pre-v4-7-0
+  namespace: mastodon
+  labels:
+    app.kubernetes.io/name: mastodon
+    app.kubernetes.io/instance: mastodon
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mastodon
+        app.kubernetes.io/instance: mastodon
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: mastodon
+      securityContext:
+        fsGroup: 991
+        runAsGroup: 991
+        runAsUser: 991
+      containers:
+        - name: migrate
+          image: "ghcr.io/mastodon/mastodon:v4.7.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - bundle
+            - exec
+            - rails
+            - db:migrate
+          resources:
+            requests:
+              memory: "1024Mi"
+              cpu: "500m"
+          envFrom:
+            - configMapRef:
+                name: mastodon-env-secret
+            - configMapRef:
+                name: mastodon-env-tf
+          env:
+            # Bypass pgbouncer: direct host/port from the terraform-managed configmap.
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: masto-direct-db
+                  key: postgres_host
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: masto-direct-db
+                  key: postgres_port
+            # Already "true" in mastodon-env-secret; set here so the intent is on the page.
+            - name: SKIP_POST_DEPLOYMENT_MIGRATIONS
+              value: "true"

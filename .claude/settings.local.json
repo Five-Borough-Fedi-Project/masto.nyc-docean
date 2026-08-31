@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kubectl -n mastodon get pods -l app.kubernetes.io/part-of=rails)"
+    ]
+  }
+}

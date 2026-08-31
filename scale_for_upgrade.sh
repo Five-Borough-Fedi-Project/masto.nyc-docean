@@ -6,6 +6,7 @@ if [ $1 == "prepare" ];
 then
     kubectl --namespace mastodon scale deployment mastodon-web --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-default --replicas=0
+    kubectl --namespace mastodon scale deployment mastodon-sidekiq-fasp --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-ingress --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-mailers --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-pull --replicas=0
@@ -18,6 +19,7 @@ if [ $1 == "drain" ];
 then
     kubectl --namespace mastodon scale deployment mastodon-web --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-default --replicas=0
+    kubectl --namespace mastodon scale deployment mastodon-sidekiq-fasp --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-ingress --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-mailers --replicas=0
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-pull --replicas=0
@@ -31,6 +33,7 @@ if [ $1 == "fill" ];
 then
     kubectl --namespace mastodon scale deployment mastodon-web --replicas=1
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-default --replicas=1
+    kubectl --namespace mastodon scale deployment mastodon-sidekiq-fasp --replicas=1
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-ingress --replicas=1
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-mailers --replicas=1
     kubectl --namespace mastodon scale deployment mastodon-sidekiq-pull --replicas=1

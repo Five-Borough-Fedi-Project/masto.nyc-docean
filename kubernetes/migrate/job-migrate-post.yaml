@@ -1,0 +1,67 @@
+### Post-deployment migrations. Run this AFTER every deployment is running the new
+### image. These are the destructive ones (dropping what the old code still read),
+### so running them before the rollout will break the running version.
+###
+### Per upgrade: bump the image tag AND the job name (Job names are immutable, so a
+### completed job of the same name must be deleted before re-applying).
+###
+### Why the shell wrapper: it is a guard in case SKIP_POST_DEPLOYMENT_MIGRATIONS is ever
+### reintroduced to mastodon-env-secret. It was set there permanently until 2026-08-31,
+### which silently skipped every post-deployment migration from 2023-08 onward. Mastodon
+### tests the flag with a bare `if ENV['SKIP_POST_DEPLOYMENT_MIGRATIONS']`
+### (lib/mastodon/database.rb), and every string is truthy in Ruby -- overriding it with
+### "false" or "" would still skip. Unsetting is the only reliable override, so this stays
+### even though the configmap is clean today. See configmap-env-secret.yaml.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mastodon-migrate-post-v4-7-0
+  namespace: mastodon
+  labels:
+    app.kubernetes.io/name: mastodon
+    app.kubernetes.io/instance: mastodon
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mastodon
+        app.kubernetes.io/instance: mastodon
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: mastodon
+      securityContext:
+        fsGroup: 991
+        runAsGroup: 991
+        runAsUser: 991
+      containers:
+        - name: migrate
+          image: "ghcr.io/mastodon/mastodon:v4.7.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - "unset SKIP_POST_DEPLOYMENT_MIGRATIONS && exec bundle exec rails db:migrate"
+          resources:
+            requests:
+              memory: "1024Mi"
+              cpu: "500m"
+          envFrom:
+            - configMapRef:
+                name: mastodon-env-secret
+            - configMapRef:
+                name: mastodon-env-tf
+          env:
+            # Bypass pgbouncer: direct host/port from the terraform-managed configmap.
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: masto-direct-db
+                  key: postgres_host
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: masto-direct-db
+                  key: postgres_port
