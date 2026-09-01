@@ -1,10 +1,34 @@
+# Builds the three first-party images under docker/ and pushes them to GHCR.
+#
+# Two deliberate constraints:
+#
+#   1. Pushes happen ONLY from main. Previously this ran on any branch, which
+#      meant a feature branch touching docker/** would republish the :latest
+#      tag -- and welcome-webhook pulled :latest with imagePullPolicy: Always,
+#      so a branch push could change production behaviour on the next restart.
+#      Pull requests still build (catching broken Dockerfiles) but never push.
+#
+#   2. Every push is tagged with the commit SHA as well as :latest. Manifests
+#      should reference the SHA tag, never :latest, so that a deploy is
+#      reproducible and can be rolled back. See kubernetes/dependencies/
+#      webhook-welcome.yaml for the pattern.
 name: Build and push Docker images to GitHub Container Registry
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'docker/*/**'
       - '.github/workflows/docker_images.yaml'
+  pull_request:
+    paths:
+      - 'docker/*/**'
+      - '.github/workflows/docker_images.yaml'
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   find-dockerfiles:
@@ -29,18 +53,28 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+
+      # Only needed when we are actually going to push.
       - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push image
+
+      - name: Build image
         run: |
           DOCKERFILE_PATH="${{ matrix.dockerfile }}"
           IMAGE_DIR=$(dirname "$DOCKERFILE_PATH")
           IMAGE_NAME=$(basename "$IMAGE_DIR")
           OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest -t ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }} "$IMAGE_DIR"
-          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:latest
-          docker push ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME:${{ github.sha }}
+          BASE="ghcr.io/$OWNER_LC/masto.nyc-docean/$IMAGE_NAME"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          docker build -t "$BASE:latest" -t "$BASE:${{ github.sha }}" "$IMAGE_DIR"
+
+      - name: Push image
+        if: github.event_name == 'push'
+        run: |
+          docker push "$BASE:${{ github.sha }}"
+          docker push "$BASE:latest"

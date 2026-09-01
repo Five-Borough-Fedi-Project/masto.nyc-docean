@@ -1,0 +1,96 @@
+# Pending-migration detector
+#
+# Why this exists: mastodon-env-secret carried SKIP_POST_DEPLOYMENT_MIGRATIONS
+# permanently from 2023-08 until 2026-08-31. Mastodon tests that flag with a
+# bare `if ENV['SKIP_POST_DEPLOYMENT_MIGRATIONS']` (lib/mastodon/database.rb),
+# so every post-deployment migration was silently skipped for three years. The
+# backlog -- 20 migrations -- was only discovered when the v4.7.0 upgrade
+# failed on a materialized view that should have been dropped in 4.2.
+#
+# Nothing in a GitOps or CI setup would have caught that: it is database state,
+# not Kubernetes state. This job is the check that would have. It runs
+# `db:migrate:status` with the skip flag explicitly unset and fails if any
+# migration is still `down`. A failing CronJob is visible in the cluster and in
+# the Vector -> BetterStack log pipeline.
+#
+# Read-only: db:migrate:status only reads schema_migrations. It connects on the
+# direct port (masto-direct-db), not the pgbouncer pool, for consistency with
+# the migration jobs -- the pool is in transaction mode.
+#
+# Scheduled Saturday 06:00 UTC: clear of the 05:00 weekly tootctl rotation
+# (Sun-Fri) and the 01:30 postgres-backup.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mastodon-migration-status
+  namespace: mastodon
+  labels:
+    app.kubernetes.io/name: mastodon
+    app.kubernetes.io/instance: mastodon
+    app.kubernetes.io/version: "v4.7.0"
+spec:
+  schedule: 0 6 * * 6
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 900
+      backoffLimit: 0
+      template:
+        metadata:
+          name: mastodon-migration-status
+        spec:
+          restartPolicy: Never
+          serviceAccountName: mastodon
+          securityContext:
+            fsGroup: 991
+            runAsGroup: 991
+            runAsUser: 991
+          containers:
+            - name: migration-status
+              image: "ghcr.io/mastodon/mastodon:v4.7.0"
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "100m"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  # Unset rather than override: every string is truthy in Ruby,
+                  # so SKIP_POST_DEPLOYMENT_MIGRATIONS="false" would still skip.
+                  unset SKIP_POST_DEPLOYMENT_MIGRATIONS
+                  echo "Checking for pending migrations..."
+                  status=$(bundle exec rails db:migrate:status)
+                  pending=$(echo "$status" | grep -c '^\s*down' || true)
+                  if [ "$pending" -gt 0 ]; then
+                    echo "FAIL: $pending migration(s) have not been applied:"
+                    echo "$status" | grep '^\s*down'
+                    echo
+                    echo "Post-deployment migrations are applied by running"
+                    echo "db:migrate with SKIP_POST_DEPLOYMENT_MIGRATIONS unset."
+                    echo "See docs/upgrade-runbook.md."
+                    exit 1
+                  fi
+                  echo "OK: no pending migrations."
+              envFrom:
+                - configMapRef:
+                    name: mastodon-env-secret
+                - configMapRef:
+                    name: mastodon-env-tf
+              env:
+                # Direct connection; db tasks must not go through pgbouncer.
+                - name: DB_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: masto-direct-db
+                      key: postgres_host
+                - name: DB_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: masto-direct-db
+                      key: postgres_port
