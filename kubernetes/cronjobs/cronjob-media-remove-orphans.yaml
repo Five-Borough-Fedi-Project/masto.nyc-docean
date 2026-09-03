@@ -46,7 +46,7 @@ spec:
                 - media
                 - remove-orphans
               envFrom:
-              - configMapRef:
+              - secretRef:
                   name: mastodon-env-secret
-              - configMapRef:
+              - secretRef:
                   name: mastodon-env-tf

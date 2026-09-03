@@ -48,7 +48,7 @@ spec:
                 - remove
                 - --days=180
               envFrom:
-              - configMapRef:
+              - secretRef:
                   name: mastodon-env-secret
-              - configMapRef:
+              - secretRef:
                   name: mastodon-env-tf

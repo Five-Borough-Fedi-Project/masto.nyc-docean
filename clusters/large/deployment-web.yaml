@@ -47,7 +47,7 @@ spec:
             - -C
             - config/puma.rb
           envFrom:
-          - configMapRef:
+          - secretRef:
               name: mastodon-env-secret
           env:
             - name: "PORT"

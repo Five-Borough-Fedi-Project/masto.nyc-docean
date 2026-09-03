@@ -56,9 +56,9 @@ spec:
             - -q
             - "scheduler"
           envFrom:
-          - configMapRef:
+          - secretRef:
               name: mastodon-env-secret
-          - configMapRef:
+          - secretRef:
               name: mastodon-env-tf
           env:
             # Match DB_POOL to sidekiq concurrency. mastodon-env-secret sets 10

@@ -73,26 +73,26 @@
 #                   value: require
 #                 - name: PGHOST
 #                   valueFrom:
-#                     configMapKeyRef:
+#                     secretKeyRef:
 #                       name: masto-direct-db
 #                       key: postgres_host
 #                 - name: PGPORT
 #                   valueFrom:
-#                     configMapKeyRef:
+#                     secretKeyRef:
 #                       name: masto-direct-db
 #                       key: postgres_port
 #                 - name: PGDATABASE
 #                   valueFrom:
-#                     configMapKeyRef:
+#                     secretKeyRef:
 #                       name: masto-direct-db
 #                       key: postgres_db
 #                 - name: PGUSER
 #                   valueFrom:
-#                     configMapKeyRef:
+#                     secretKeyRef:
 #                       name: masto-direct-db
 #                       key: postgres_user
 #                 - name: PGPASSWORD
 #                   valueFrom:
-#                     configMapKeyRef:
+#                     secretKeyRef:
 #                       name: masto-direct-db
 #                       key: postgres_pass

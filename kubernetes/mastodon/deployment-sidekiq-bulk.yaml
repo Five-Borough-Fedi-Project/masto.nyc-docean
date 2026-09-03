@@ -65,9 +65,9 @@ spec:
             - -q
             - "mailers,2"
           envFrom:
-          - configMapRef:
+          - secretRef:
               name: mastodon-env-secret
-          - configMapRef:
+          - secretRef:
               name: mastodon-env-tf
           env:
             # ActiveRecord must offer at least as many connections as sidekiq

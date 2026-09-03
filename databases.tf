@@ -49,6 +49,13 @@ resource "digitalocean_database_firewall" "mastodon_pg" {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
+  dynamic "rule" {
+    for_each = var.large_node_ips
+    content {
+      type  = "ip_addr"
+      value = rule.value
+    }
+  }
 }
 
 ### This is kinda fucky. When I use it, the UI gets kinda messed up and sql connections
@@ -97,6 +104,13 @@ resource "digitalocean_database_firewall" "mastodon_redis" {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
+  dynamic "rule" {
+    for_each = var.large_node_ips
+    content {
+      type  = "ip_addr"
+      value = rule.value
+    }
+  }
 }
 
 ################## OPENSEARCH ##################
@@ -135,5 +149,12 @@ resource "digitalocean_database_firewall" "mastodon_os" {
   rule {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
+  }
+  dynamic "rule" {
+    for_each = var.large_node_ips
+    content {
+      type  = "ip_addr"
+      value = rule.value
+    }
   }
 }
