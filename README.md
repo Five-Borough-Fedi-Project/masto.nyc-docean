@@ -8,7 +8,7 @@ Since we came from a bare metal Kubernetes setup, we wanted to maintain as much 
 
 ## Setup instructions:
 
-Replace tofu with terraform if that's your drug of choice 🤷
+**OpenTofu 1.8 or newer, not Terraform.** The backend block in `provider.tf` references variables, which OpenTofu supports as of 1.8 and HashiCorp Terraform does not support at all. `terraform init` will reject this repo.
 
 1. In the DOcean console, generate a new [Personal access token](https://cloud.digitalocean.com/account/api/tokens). Put them aside for later.
 2. From that page, click on the "Spaces Keys" tab and create a new set of s3 creds for the state. Put them aside for later.

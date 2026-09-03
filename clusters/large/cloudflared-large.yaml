@@ -1,0 +1,100 @@
+# Don't forget to do this:
+# https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-large
+  namespace: mastodon
+spec:
+  selector:
+    matchLabels:
+      app: cloudflared-large
+  replicas: 1 
+  template:
+    metadata:
+      labels:
+        app: cloudflared-large
+        security: web-ext
+    spec:
+      # https://github.com/cloudflare/cloudflared/issues/1109#issuecomment-2234239403
+      securityContext:
+        runAsGroup: 65532
+        runAsUser: 65532
+        runAsNonRoot: true 
+        sysctls:
+        - name: net.ipv4.ping_group_range
+          value: "0           200000000"
+      containers:
+      - name: cloudflared-large
+        image: cloudflare/cloudflared:2026.5.0
+        args:
+        - tunnel
+        - --config
+        - /etc/cloudflared/config/config.yaml
+        - run
+        livenessProbe:
+          httpGet:
+            # Cloudflared has a /ready endpoint which returns 200 if and only if
+            # it has an active connection to the edge.
+            path: /ready
+            port: 2000
+          failureThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /etc/cloudflared/config
+          readOnly: true
+        # Each tunnel has an associated "credentials file" which authorizes machines
+        # to run the tunnel. cloudflared will read this file from its local filesystem,
+        # and it'll be stored in a k8s secret.
+        - name: creds
+          mountPath: /etc/cloudflared/creds
+          readOnly: true
+      volumes:
+      - name: creds
+        secret:
+          # By default, the credentials file will be created under ~/.cloudflared/<tunnel ID>.json
+          # when you run `cloudflared tunnel create`. You can move it into a secret by using:
+          # ```sh
+          # kubectl create secret generic tunnel-credentials \
+          # --from-file=credentials.json=/Users/yourusername/.cloudflared/<tunnel ID>.json
+          # ```
+          secretName: tunnel-credentials-large
+      # Create a config.yaml file from the ConfigMap below.
+      - name: config
+        configMap:
+          name: cloudflared-large
+          items:
+          - key: config.yaml
+            path: config.yaml
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudflared-large-sysctl
+  namespace: mastodon
+spec:
+  selector:
+    matchLabels:
+      app: sysctl
+  template:
+    metadata:
+      labels:
+        app: sysctl
+    spec:
+      hostNetwork: yes
+      initContainers:
+        - name: init
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - sysctl -w net.core.rmem_max=7500000 && sysctl -w net.core.wmem_max=7500000
+          securityContext:
+            privileged: true
+      containers:
+        - name: sleep
+          image: filefrog/k8s-hacks:pause
