@@ -50,10 +50,14 @@ resource "digitalocean_database_firewall" "mastodon_pg" {
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
   dynamic "rule" {
-    for_each = var.large_node_ips
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
     content {
       type  = "ip_addr"
-      value = rule.value
+      value = sensitive(rule.value)
     }
   }
 }
@@ -105,10 +109,14 @@ resource "digitalocean_database_firewall" "mastodon_redis" {
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
   dynamic "rule" {
-    for_each = var.large_node_ips
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
     content {
       type  = "ip_addr"
-      value = rule.value
+      value = sensitive(rule.value)
     }
   }
 }
@@ -151,10 +159,14 @@ resource "digitalocean_database_firewall" "mastodon_os" {
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
   dynamic "rule" {
-    for_each = var.large_node_ips
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
     content {
       type  = "ip_addr"
-      value = rule.value
+      value = sensitive(rule.value)
     }
   }
 }
