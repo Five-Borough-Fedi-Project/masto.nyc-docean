@@ -102,6 +102,10 @@ in step 8 both record failures from that night.
 12. Re-run the migration status check.
 13. Expect disk usage to settle above where it started. Autovacuum reclaims the
     dead tuples for reuse but does not return the space to the operating system.
+14. Check node memory. `mastodon-web` grows to about 1.1 GiB over a few days of
+    serving and pushes a node past 100%, at which point sidekiq pods get
+    OOMKilled. Restart it by deleting the pod, never with
+    `kubectl rollout restart`. See `docs/cluster-capacity.md`.
 
 ## What stays manual
 
