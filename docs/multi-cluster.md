@@ -63,11 +63,17 @@ so the address sits in cleartext in the Spaces state bucket. And the address is
 still allowlisted at three managed databases, so it remains a credential-shaped
 thing even though it is only an IP.
 
-A stronger option exists for later: cloudflared can proxy TCP, so `large` could
-reach Postgres through a tunnel instead of over the public internet. That would
-remove the allowlist and stop the databases accepting connections from any
-enumerable address. It costs another tunnel to run and monitor, so it is
-worth doing when the web tier work settles rather than now.
+Tunneling the connection was considered and rejected. cloudflared can proxy
+TCP, which would remove the allowlist and stop the databases accepting
+connections from any enumerable address. It also adds a userspace proxy hop to
+every query. Rails issues many small queries per request and the web tier runs
+on `large`, so that cost lands on the critical path. Latency is the binding
+constraint here, not the allowlist.
+
+If the allowlist ever needs to go, the option that does not add a hop is a
+kernel-level link, WireGuard or Tailscale, terminated on a small droplet inside
+the VPC. That costs a droplet rather than a round trip. Until then the address
+stays allowlisted and stays protected.
 
 ## Repository layout
 

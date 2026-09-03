@@ -25,6 +25,10 @@ variable "masto_ns" {
 ###   locally  terraform.tfvars, which is gitignored
 ###   in CI    TF_VAR_large_node_ips, from a GitHub Actions secret
 ###
+### Do not try to design the allowlist away. Tunneling the connection through
+### cloudflared was considered and rejected: the path is latency sensitive and a
+### userspace proxy hop lands on every query.
+###
 ### sensitive = true redacts plan and apply output. It does NOT redact state, so
 ### the address is readable to anyone who can read the Spaces state bucket. That
 ### bucket is private, and the Spaces keys guarding it are worth treating as
