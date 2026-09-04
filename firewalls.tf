@@ -1,3 +1,8 @@
+### These represent firewalls that DOKS creates and maintains, so reality is the
+### source of truth and this file follows it. The k8s_private outbound rules
+### carried only 0.0.0.0/0 while DOKS had 0.0.0.0/0 and ::/0, so every plan
+### proposed stripping IPv6 egress from the worker nodes. Corrected 2026-09-03.
+###
 ### I'm going to note that this will, for now, only represent firewalls that are auto-created by things like the k8s cluster
 ### I'll need to explore the cost/benefit and complexity of separating out the cloudflared/nginx tier of the infra,
 ### but for right now it will all be on the same private subnet.
@@ -50,17 +55,17 @@ resource "digitalocean_firewall" "k8s_private" {
   outbound_rule {
     protocol              = "tcp"
     port_range            = "all"
-    destination_addresses = ["0.0.0.0/0"]
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
     protocol              = "udp"
     port_range            = "all"
-    destination_addresses = ["0.0.0.0/0"]
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
     protocol              = "icmp"
-    destination_addresses = ["0.0.0.0/0"]
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }

@@ -14,6 +14,14 @@ resource "digitalocean_database_cluster" "mastodon_pg" {
     day  = "thursday"
     hour = "03:00:00"
   }
+
+  # Guardrail for the slow reconciliation described in
+  # docs/terraform-reconciliation.md. This resource cannot be recreated without
+  # data loss or a rebuild, so any plan that would destroy or replace it must
+  # fail loudly instead of proceeding. Removing this line is a deliberate act.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "digitalocean_database_db" "mastodon_pg" {
@@ -68,6 +76,14 @@ resource "digitalocean_database_cluster" "mastodon_redis" {
     day  = "tuesday"
     hour = "03:00:00"
   }
+
+  # Guardrail for the slow reconciliation described in
+  # docs/terraform-reconciliation.md. This resource cannot be recreated without
+  # data loss or a rebuild, so any plan that would destroy or replace it must
+  # fail loudly instead of proceeding. Removing this line is a deliberate act.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "digitalocean_database_valkey_config" "mastodon_redis" {
@@ -96,6 +112,21 @@ resource "digitalocean_database_cluster" "mastodon_os" {
   maintenance_window {
     day  = "wednesday"
     hour = "03:00:00"
+  }
+
+  # Guardrail for the slow reconciliation described in
+  # docs/terraform-reconciliation.md. This resource cannot be recreated without
+  # data loss or a rebuild, so any plan that would destroy or replace it must
+  # fail loudly instead of proceeding. Removing this line is a deliberate act.
+  lifecycle {
+    prevent_destroy = true
+
+    # DigitalOcean manages the minor version. This file pins "2" while the
+    # cluster reports "2.19", so Terraform plans a change on every run.
+    # Updates in place rather than forcing replacement, so it is less dangerous
+    # than the Kubernetes version drift, but still noise that hides real
+    # changes. Measured 2026-09-03.
+    ignore_changes = [version]
   }
 }
 
