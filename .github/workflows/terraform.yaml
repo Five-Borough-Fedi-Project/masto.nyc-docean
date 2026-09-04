@@ -1,0 +1,143 @@
+# OpenTofu plan on every pull request, apply on merge to main.
+#
+# OpenTofu specifically, and 1.12.6 specifically. The backend block in
+# provider.tf references variables, which OpenTofu supports from 1.8 and
+# HashiCorp Terraform rejects at every version. State was last written by
+# 1.12.6; an older binary cannot read it.
+#
+# Why the plan output is filtered before it reaches a pull request comment:
+# this repository is public and Actions logs are world-readable. Sensitive
+# attributes already render as "(sensitive value)", and var.large_node_ips is
+# marked sensitive so the mastodon-large origin address never prints. The
+# comment still carries only resource-level actions rather than attribute
+# diffs, so a future resource that is not sensitivity-marked cannot leak
+# through this path by accident.
+#
+# There is no state locking on the Spaces backend. The concurrency group below
+# is what prevents two runs writing state at once.
+name: OpenTofu
+
+on:
+  pull_request:
+    paths:
+      - '**.tf'
+      - '.terraform.lock.hcl'
+      - '.github/workflows/terraform.yaml'
+  push:
+    branches: [main]
+    paths:
+      - '**.tf'
+      - '.terraform.lock.hcl'
+      - '.github/workflows/terraform.yaml'
+
+concurrency:
+  group: opentofu-state
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  TOFU_VERSION: 1.12.6
+  # The S3 backend reads Spaces credentials from the standard AWS variables.
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_KEY }}
+  TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
+  TF_VAR_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+  TF_VAR_state_key: ${{ secrets.TF_STATE_KEY }}
+  TF_VAR_large_node_ips: ${{ secrets.LARGE_NODE_IPS }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.plan.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+
+      - run: tofu fmt -check -recursive
+        continue-on-error: true
+
+      - run: tofu init -input=false
+      - run: tofu validate
+
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          tofu plan -input=false -no-color -out=tfplan > plan.txt 2>&1
+          rc=$?
+          set -e
+          # Resource-level actions only. Attribute diffs stay in the job log.
+          grep -E '^\s+# \S+ (will|must)' plan.txt | sed 's/^ *//' > actions.txt || true
+          grep -E '^Plan:|^No changes|^Error' plan.txt | head -3 > summary.txt || true
+          {
+            echo 'summary<<EOF'
+            cat summary.txt
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '### OpenTofu plan'
+            echo '```'
+            cat summary.txt
+            echo
+            cat actions.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - name: Refuse to proceed if anything would be destroyed or replaced
+        run: |
+          if grep -qE 'must be replaced|forces replacement' plan.txt; then
+            echo "::error::The plan would replace a resource. Five resources carry"
+            echo "::error::prevent_destroy; if one of them is here, stop and read"
+            echo "::error::docs/terraform-reconciliation.md before doing anything."
+            exit 1
+          fi
+          echo "no replacements planned"
+
+      - name: Comment the plan on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('summary.txt', 'utf8').trim();
+            const actions = fs.readFileSync('actions.txt', 'utf8').trim();
+            const body = [
+              '### OpenTofu plan',
+              '```',
+              summary,
+              '',
+              actions || '(no resource changes)',
+              '```',
+              '',
+              'Attribute diffs are in the job log rather than here. Read every',
+              'removal line before approving: a rule deleted from a firewall is',
+              'an in-place update, not a destroy.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  apply:
+    needs: plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Create this environment in repository settings with required reviewers.
+    # Without it, a merge applies to production infrastructure unattended.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+      - run: tofu init -input=false
+      - run: tofu apply -input=false -auto-approve

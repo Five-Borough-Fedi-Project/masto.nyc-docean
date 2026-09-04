@@ -1,0 +1,89 @@
+# Builds both cluster overlays on every pull request.
+#
+# This exists because kustomize is stricter than kubectl, and that strictness
+# has already earned its keep. On 2026-09-04 it caught duplicate keys in a
+# CronJob that kubectl had been silently resolving by taking the last value,
+# and `hostNetwork: yes` in three DaemonSets, which apply accepted and diff
+# rejected with `unrecognized type: bool`.
+#
+# It does not touch a cluster. No credentials, no kubeconfig.
+name: Build Kubernetes manifests
+
+on:
+  pull_request:
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/kustomize.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/kustomize.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - do-production
+          - large
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.cluster }}
+        run: kubectl kustomize "k8s/clusters/${{ matrix.cluster }}" > /tmp/built.yaml
+
+      - name: Report what was built
+        run: |
+          echo "### ${{ matrix.cluster }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep '^kind:' /tmp/built.yaml | sort | uniq -c | sort -rn >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Every namespaced object must declare its namespace
+        run: |
+          python3 - <<'PY'
+          import yaml, sys
+          CLUSTER_SCOPED = {'Namespace','ClusterRole','ClusterRoleBinding',
+                            'CustomResourceDefinition','StorageClass'}
+          bad = []
+          for d in yaml.safe_load_all(open('/tmp/built.yaml')):
+              if not d: continue
+              kind = d.get('kind')
+              md = d.get('metadata') or {}
+              if kind in CLUSTER_SCOPED:
+                  if 'namespace' in md:
+                      bad.append(f"{kind}/{md.get('name')} is cluster-scoped but sets a namespace")
+              elif not md.get('namespace'):
+                  bad.append(f"{kind}/{md.get('name')} has no namespace")
+          if bad:
+              print("\n".join("  " + b for b in bad)); sys.exit(1)
+          print("  all objects namespaced correctly")
+          PY
+
+      - name: No image may float on a mutable tag
+        run: |
+          python3 - <<'PY'
+          import yaml, sys
+          bad = []
+          def walk(spec, owner):
+              for c in (spec.get('containers') or []) + (spec.get('initContainers') or []):
+                  img = c.get('image','')
+                  if img.endswith(':latest') or ':' not in img.rsplit('/',1)[-1]:
+                      bad.append(f"{owner} uses {img!r}")
+          for d in yaml.safe_load_all(open('/tmp/built.yaml')):
+              if not d: continue
+              k = d.get('kind'); n = (d.get('metadata') or {}).get('name')
+              t = (d.get('spec') or {}).get('template')
+              if t: walk(t.get('spec') or {}, f"{k}/{n}")
+              jt = ((d.get('spec') or {}).get('jobTemplate') or {}).get('spec',{}).get('template')
+              if jt: walk(jt.get('spec') or {}, f"{k}/{n}")
+          if bad:
+              print("\n".join("  " + b for b in bad)); sys.exit(1)
+          print("  every image is pinned")
+          PY

@@ -21,8 +21,8 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: sync-blocked-email-domains
-              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/sync-blocked-email-domains:latest
-              imagePullPolicy: Always
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/sync-blocked-email-domains@sha256:94096131649d8c36030ee0cc117cd99a442facee138eedd802526c812e4f2ad1
+              imagePullPolicy: IfNotPresent
               env:
               - name: "MASTODON_HOST"
                 value: "https://masto.nyc"

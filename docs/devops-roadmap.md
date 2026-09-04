@@ -34,7 +34,7 @@ password and the Spaces keys straight into a public log.
 | 3 | Kustomize: shared base plus one overlay per cluster | 2 | |
 | 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | |
 | 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | |
-| 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | |
+| 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | workflow written, needs secrets |
 | 7 | Renovate for image bumps | 3 | |
 | 8 | Revisit Cilium network policies | everything above | last |
 
@@ -77,7 +77,7 @@ Pick the version CI pins and install the same one locally. State written by a
 newer tofu is unreadable by an older one, and CI should not be the thing that
 upgrades it first. The last recorded state write came from OpenTofu 1.8.1.
 
-    CI pins OpenTofu: <TBD, fill in when the workflow lands>
+    CI pins OpenTofu: 1.12.6
 
 ## Before phase 6
 
@@ -98,6 +98,24 @@ at is sound: cloudflared should not be able to reach arbitrary hosts. But it is
 a security improvement on a system that currently works, and it can take the
 tunnels offline if the allowlist is incomplete, so it goes after the automation
 rather than before it.
+
+## Repository secrets the workflows need
+
+`.github/workflows/terraform.yaml` reads six repository secrets. Until they are
+set, the plan job fails and nothing applies.
+
+| secret | value |
+|---|---|
+| `DO_TOKEN` | DigitalOcean personal access token |
+| `SPACES_ACCESS_KEY` | Spaces key for the state bucket |
+| `SPACES_SECRET_KEY` | its secret |
+| `TF_STATE_BUCKET` | `masto-nyc-tf-state` |
+| `TF_STATE_KEY` | `prod/terraform.tfstate` |
+| `LARGE_NODE_IPS` | `["<the address>"]`, JSON, matching the tfvars form |
+
+Also create a `production` environment in repository settings with required
+reviewers. The apply job names it, and without it a merge applies to production
+infrastructure unattended.
 
 ## Out of scope
 
