@@ -175,6 +175,31 @@ tofu plan
 line, do not run a bare apply, and do not enable the CI apply from phase 6 of
 `docs/devops-roadmap.md`.
 
+## Where this landed
+
+With the guardrails and the secrets pull request both applied to a working
+copy, and `var.large_node_ips` populated, a full plan reads:
+
+```
+Plan: 2 to add, 3 to change, 0 to destroy.
+```
+
+- **2 to add** are the two `kubernetes_secret_v1` resources the secrets change
+  intends to create.
+- **3 to change** are the database firewalls. Verified against the JSON plan
+  rather than the rendered output: each goes from two rules to two rules and
+  keeps its `ip_addr` entry. The change is the computed `uuid` and `created_at`
+  fields plus the new sensitivity marking, not the rule set.
+- **0 to destroy.** That is the number that matters. It was 1 before, and the
+  one was the Kubernetes cluster.
+
+The address does not appear anywhere in the plan output. It renders as
+`(sensitive value)`, which is what makes the phase 6 CI apply safe to turn on.
+
+Do not read "0 to destroy" as permission to apply. The secrets change still
+needs the staged rollout in `docs/secrets-rollout.md`, and both pull requests
+have to land first.
+
 ## Two things that will surprise you
 
 **The state version upgrades on first write.** State was written by OpenTofu
