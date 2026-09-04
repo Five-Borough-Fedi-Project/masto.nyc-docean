@@ -1,14 +1,21 @@
 ---
 # Source: mastodon/templates/deployment-sidekiq.yaml
+#
+# Latency-sensitive queues: inbound federation, outbound delivery, and the default queue that carries user-facing work.
+#
+# Consolidated 2026-09-04. Seven single-queue deployments each booted a full
+# Rails app, and the least busy of them still used 417Mi, so the process
+# baseline was roughly 400Mi paid seven times. Sidekiq takes several queues per
+# process with weights, which preserves priority without the duplication.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq-pull
+  name: mastodon-sidekiq-realtime
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
     app.kubernetes.io/version: "v4.7.0"
-    app.kubernetes.io/component: sidekiq-pull
+    app.kubernetes.io/component: sidekiq-realtime
     app.kubernetes.io/part-of: rails
 spec:
   strategy:
@@ -18,14 +25,14 @@ spec:
     matchLabels:
       app.kubernetes.io/name: mastodon
       app.kubernetes.io/instance: mastodon
-      app.kubernetes.io/component: sidekiq-pull
+      app.kubernetes.io/component: sidekiq-realtime
       app.kubernetes.io/part-of: rails
   template:
     metadata:
       labels:
         app.kubernetes.io/name: mastodon
         app.kubernetes.io/instance: mastodon
-        app.kubernetes.io/component: sidekiq-pull
+        app.kubernetes.io/component: sidekiq-realtime
         app.kubernetes.io/part-of: rails
     spec:
       serviceAccountName: mastodon
@@ -37,10 +44,10 @@ spec:
         - name: mastodon
           resources:
             requests:
-              memory: "500Mi"
-              cpu: "100m"
+              memory: "700Mi"
+              cpu: "200m"
             limits:
-              memory: "900Mi"
+              memory: "1100Mi"
           securityContext:
             {}
           image: "ghcr.io/mastodon/mastodon:v4.7.0"
@@ -52,9 +59,19 @@ spec:
             - -c
             - "25"
             - -q
-            - "pull"
+            - "ingress,10"
+            - -q
+            - "push,6"
+            - -q
+            - "default,8"
           envFrom:
           - configMapRef:
               name: mastodon-env-secret
           - configMapRef:
               name: mastodon-env-tf
+          env:
+            # ActiveRecord must offer at least as many connections as sidekiq
+            # has threads, or threads block on checkout. mastodon-env-secret
+            # sets DB_POOL=10 globally against -c 25, which was wrong.
+            - name: DB_POOL
+              value: "25"
