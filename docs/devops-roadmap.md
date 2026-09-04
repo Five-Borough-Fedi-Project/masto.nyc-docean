@@ -36,6 +36,7 @@ password and the Spaces keys straight into a public log.
 | 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | |
 | 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | |
 | 7 | Renovate for image bumps | 3 | |
+| 8 | Revisit Cilium network policies | everything above | last |
 
 ## Notes
 
@@ -85,6 +86,18 @@ how you lose a database. `docs/terraform-reconciliation.md` covers closing that
 gap resource by resource without changing anything in the cloud, using
 `-refresh-only` and `-target`. The five irreplaceable resources now carry
 `prevent_destroy`, so a plan that would destroy them fails rather than running.
+
+**Phase 8** is deliberately last. `kubernetes/security/web-ext.yaml` held a
+CiliumNetworkPolicy restricting cloudflared egress to an FQDN allowlist. It was
+never applied, so the restriction it described was never in force, and it was
+removed on 2026-09-04 rather than left in the repo asserting something untrue.
+Cilium did not work out on an earlier attempt.
+
+Worth returning to once the rest is done, because the egress posture it aimed
+at is sound: cloudflared should not be able to reach arbitrary hosts. But it is
+a security improvement on a system that currently works, and it can take the
+tunnels offline if the allowlist is incomplete, so it goes after the automation
+rather than before it.
 
 ## Out of scope
 

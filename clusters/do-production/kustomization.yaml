@@ -1,0 +1,6 @@
+# do-production: the DigitalOcean cluster. Applied with --context=do.
+# This is the path Flux will reconcile.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../kubernetes

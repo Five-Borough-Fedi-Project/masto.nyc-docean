@@ -1,0 +1,12 @@
+# Mastodon workloads: web, streaming, the three consolidated sidekiq
+# deployments, and the service account they share.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - deployment-sidekiq-bulk.yaml
+  - deployment-sidekiq-realtime.yaml
+  - deployment-sidekiq-scheduler.yaml
+  - deployment-streaming.yaml
+  - deployment-web.yaml
+  - serviceaccount.yaml

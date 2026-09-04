@@ -1,0 +1,19 @@
+# Everything that runs on do-production.
+#
+# No `namespace:` directive here on purpose. ns.yaml declares the Namespace
+# itself, which is cluster-scoped, and each subdirectory sets its own namespace.
+#
+# migrate/ is absent: those are one-shot Jobs a human runs during an upgrade,
+# and a reconciler would recreate them. See docs/upgrade-runbook.md.
+#
+# dependencies/advanced-monitoring/ targets kube-system rather than mastodon.
+# dependencies/private-vector/ is gitignored.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ns.yaml
+  - mastodon
+  - services
+  - cronjobs
+  - dependencies
+  - security

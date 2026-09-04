@@ -1,0 +1,14 @@
+# mastodon-large: the bare-metal cluster serving the web tier.
+# Applied with --context=lab. Only the mastodon namespace here is in scope.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - cloudflared-large.yaml
+  - configmap-cloudflared-large.yaml
+  - configmap-nginx.yaml
+  - deployment-nginx.yaml
+  - deployment-web.yaml
+  - service-nginx.yaml
+  - service-web.yaml
+  - serviceaccount.yaml

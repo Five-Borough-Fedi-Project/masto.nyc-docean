@@ -85,7 +85,7 @@ spec:
       labels:
         app: sysctl
     spec:
-      hostNetwork: yes
+      hostNetwork: true
       initContainers:
         - name: init
           image: alpine

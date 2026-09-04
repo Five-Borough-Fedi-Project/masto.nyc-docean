@@ -1,0 +1,12 @@
+# ClusterIP services. Nothing here is reachable from outside the cluster;
+# cloudflared dials out and proxies inward.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - service-libretranslate.yaml
+  - service-nginx.yaml
+  - service-streaming.yaml
+  - service-stunnel.yaml
+  - service-web.yaml
+  - service-welcome-webhook.yaml
