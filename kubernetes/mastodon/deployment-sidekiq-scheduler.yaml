@@ -5,6 +5,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: mastodon
   name: mastodon-sidekiq-sched
   labels:
     app.kubernetes.io/name: mastodon
