@@ -78,6 +78,14 @@ upgrades it first. The last recorded state write came from OpenTofu 1.8.1.
 
     CI pins OpenTofu: <TBD, fill in when the workflow lands>
 
+## Before phase 6
+
+State has drifted from reality, and a bare `tofu apply` against drifted state is
+how you lose a database. `docs/terraform-reconciliation.md` covers closing that
+gap resource by resource without changing anything in the cloud, using
+`-refresh-only` and `-target`. The five irreplaceable resources now carry
+`prevent_destroy`, so a plan that would destroy them fails rather than running.
+
 ## Out of scope
 
 - **Migrations stay human-triggered.** See `docs/upgrade-runbook.md`.
