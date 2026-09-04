@@ -1,13 +1,14 @@
 ### This file is just for reference, as the one used in production is private. 
 
 # apiVersion: v1
-# kind: ConfigMap
+# kind: Secret
 # metadata:
 #   name: storage-backup
 #   labels:
 #     app.kubernetes.io/name: mastodon
 #     app.kubernetes.io/instance: mastodon
-# data:
+# type: Opaque
+# stringData:
 #   DEFAULT_S3_KEY_ID: 
 #   DEFAULT_S3_KEY_SECRET:
 #   DEFAULT_S3_REGION: 

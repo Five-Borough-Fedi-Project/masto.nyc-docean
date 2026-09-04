@@ -1,5 +1,10 @@
 terraform {
-required_version = ">= 1.6.3"
+### OpenTofu only, and >= 1.8 specifically. The backend block below references
+### var.state_bucket / var.state_key, and variables in backend configuration
+### landed in OpenTofu 1.8 (opentofu/opentofu#388). HashiCorp Terraform does
+### not support it at any version -- `terraform init` will reject this file.
+### The last recorded state write was from OpenTofu 1.8.1.
+required_version = ">= 1.8.0"
   backend "s3" {
     endpoints = {
       s3 = "https://nyc3.digitaloceanspaces.com" // only nyc3 supported in ny

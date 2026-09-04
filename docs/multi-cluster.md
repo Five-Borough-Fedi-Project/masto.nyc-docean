@@ -41,6 +41,40 @@ The variable defaults to an empty list. An empty list adds no rules and deletes
 none, so an apply from a workstation that has not set it does nothing. That is
 the point.
 
+## Protecting the large cluster's address
+
+`var.large_node_ips` is marked sensitive, so `tofu plan` renders each firewall
+rule as `(sensitive value)` rather than printing the address. The Terraform uses
+`nonsensitive()` to iterate the list and `sensitive()` to re-mark each element,
+because `for_each` cannot walk a sensitive value directly.
+
+The reason is the Cloudflare tunnel. `mastodon-large` runs cloudflared so that
+its origin address stays private. Publishing that address anywhere, in a
+committed tfvars, in a plan comment on a pull request, or in an Actions log on
+this public repo, undoes that and lets anyone reach the box without going
+through Cloudflare.
+
+Supply the value locally through the gitignored `terraform.tfvars`, and in CI
+through a `TF_VAR_large_node_ips` Actions secret. Confirm on the first real plan
+that the rules render as `(sensitive value)`.
+
+Two limits worth knowing. Sensitivity covers plan and apply output, not state,
+so the address sits in cleartext in the Spaces state bucket. And the address is
+still allowlisted at three managed databases, so it remains a credential-shaped
+thing even though it is only an IP.
+
+Tunneling the connection was considered and rejected. cloudflared can proxy
+TCP, which would remove the allowlist and stop the databases accepting
+connections from any enumerable address. It also adds a userspace proxy hop to
+every query. Rails issues many small queries per request and the web tier runs
+on `large`, so that cost lands on the critical path. Latency is the binding
+constraint here, not the allowlist.
+
+If the allowlist ever needs to go, the option that does not add a hop is a
+kernel-level link, WireGuard or Tailscale, terminated on a small droplet inside
+the VPC. That costs a droplet rather than a round trip. Until then the address
+stays allowlisted and stays protected.
+
 ## Repository layout
 
 Both clusters run Flux, both point at this repo, and each reconciles one

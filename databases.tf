@@ -49,6 +49,17 @@ resource "digitalocean_database_firewall" "mastodon_pg" {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
+  dynamic "rule" {
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
+    content {
+      type  = "ip_addr"
+      value = sensitive(rule.value)
+    }
+  }
 }
 
 ### This is kinda fucky. When I use it, the UI gets kinda messed up and sql connections
@@ -97,6 +108,17 @@ resource "digitalocean_database_firewall" "mastodon_redis" {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
   }
+  dynamic "rule" {
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
+    content {
+      type  = "ip_addr"
+      value = sensitive(rule.value)
+    }
+  }
 }
 
 ################## OPENSEARCH ##################
@@ -135,5 +157,16 @@ resource "digitalocean_database_firewall" "mastodon_os" {
   rule {
     type  = "k8s"
     value = digitalocean_kubernetes_cluster.mastodon_k8s.id
+  }
+  dynamic "rule" {
+    # nonsensitive() is required because for_each cannot iterate a sensitive
+    # value; sensitive() then re-marks each address so it renders as
+    # "(sensitive value)" in plan output rather than being printed. See the
+    # comment on var.large_node_ips for why that matters.
+    for_each = nonsensitive(var.large_node_ips)
+    content {
+      type  = "ip_addr"
+      value = sensitive(rule.value)
+    }
   }
 }

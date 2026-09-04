@@ -46,20 +46,20 @@ spec:
               memory: "1024Mi"
               cpu: "500m"
           envFrom:
-            - configMapRef:
+            - secretRef:
                 name: mastodon-env-secret
-            - configMapRef:
+            - secretRef:
                 name: mastodon-env-tf
           env:
             # Bypass pgbouncer: direct host/port from the terraform-managed configmap.
             - name: DB_HOST
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: masto-direct-db
                   key: postgres_host
             - name: DB_PORT
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: masto-direct-db
                   key: postgres_port
             # Already "true" in mastodon-env-secret; set here so the intent is on the page.

@@ -40,47 +40,47 @@ spec:
                   value: "backups"
                 - name: S3_REGION
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: storage-backup
                       key: DEFAULT_S3_REGION
                 - name: S3_ACCESS_KEY_ID
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: storage-backup
                       key: DEFAULT_S3_KEY_ID
                 - name: S3_SECRET_ACCESS_KEY
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: storage-backup
                       key: DEFAULT_S3_KEY_SECRET
                 - name: S3_BUCKET
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: storage-backup
                       key: postgres_bucket
                 - name: POSTGRES_HOST
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_host
                 - name: POSTGRES_PORT
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_port
                 - name: POSTGRES_DATABASE
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_db
                 - name: POSTGRES_USER
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_user
                 - name: POSTGRES_PASSWORD
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_pass
               imagePullPolicy: IfNotPresent

@@ -78,19 +78,19 @@ spec:
                   fi
                   echo "OK: no pending migrations."
               envFrom:
-                - configMapRef:
+                - secretRef:
                     name: mastodon-env-secret
-                - configMapRef:
+                - secretRef:
                     name: mastodon-env-tf
               env:
                 # Direct connection; db tasks must not go through pgbouncer.
                 - name: DB_HOST
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_host
                 - name: DB_PORT
                   valueFrom:
-                    configMapKeyRef:
+                    secretKeyRef:
                       name: masto-direct-db
                       key: postgres_port
