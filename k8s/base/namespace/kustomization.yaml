@@ -1,0 +1,7 @@
+# The mastodon namespace itself. Cluster-scoped, so no `namespace:` directive
+# here, and only do-production creates it. On large the namespace predates this
+# repository.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml

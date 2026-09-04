@@ -89,5 +89,3 @@ spec:
             configMap:
               name: postgres-completion
               defaultMode: 0755
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1

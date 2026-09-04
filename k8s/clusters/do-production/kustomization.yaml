@@ -1,0 +1,28 @@
+# do-production, the DigitalOcean cluster. Apply with --context=do.
+# This is the path Flux will reconcile.
+#
+# base/ holds what both clusters run. The base values are do-production's, so
+# this overlay needs no patches; large/ patches instead.
+#
+# Not referenced on purpose:
+#   ../../migrate            one-shot Jobs a human runs during an upgrade
+#   ../../infrastructure     targets kube-system, not mastodon
+#   ../../secrets            gitignored private files, applied by hand until SOPS
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base/namespace
+  - ../../base/nginx
+  - ../../base/mastodon-web
+  - ../../apps/streaming
+  - ../../apps/sidekiq
+  - ../../apps/libretranslate
+  - ../../apps/welcome-webhook
+  - ../../apps/cronjobs
+  - ../../apps/debug
+  - cloudflared
+images:
+  - name: ghcr.io/mastodon/mastodon
+    newTag: v4.7.0
+  - name: ghcr.io/mastodon/mastodon-streaming
+    newTag: v4.7.0

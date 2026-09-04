@@ -59,7 +59,7 @@ in step 8 both record failures from that night.
 
 8. **Migrate.** With the site down you can skip the pre/post split. Upstream
    recommends one pass with post-deployment migrations enabled when services
-   are stopped. Apply a Job based on `kubernetes/migrate/job-migrate-pre.yaml`,
+   are stopped. Apply a Job based on `k8s/migrate/job-migrate-pre.yaml`,
    replacing the command with:
 
    ```
@@ -85,14 +85,22 @@ in step 8 both record failures from that night.
 9. **Cut over.** Bump the image tags and apply. Your site runs the new version
    from this point:
 
+   Bump the tag in the two `images:` stanzas, one per cluster, rather than
+   editing every manifest:
+
    ```sh
-   grep -rl "v4\.7\.0" kubernetes/ | xargs sed -i 's/v4\.7\.0/v4.7.1/g'
-   for f in kubernetes/mastodon/deployment-*.yaml; do kubectl apply -f "$f"; done
+   sed -i 's/newTag: v4.7.0/newTag: v4.7.1/' \
+     k8s/clusters/do-production/kustomization.yaml \
+     k8s/clusters/large/kustomization.yaml
    ```
 
-   Avoid `kubectl apply -f kubernetes/mastodon/`. Two files in that directory
-   are commented out end to end, and kubectl errors on any file that yields no
-   objects.
+   ```sh
+   kubectl --context=do  apply -k k8s/clusters/do-production
+   kubectl --context=lab apply -k k8s/clusters/large
+   ```
+
+   Check first with `kubectl --context=do diff -k k8s/clusters/do-production`,
+   which answers whether the cluster matches the repo in one command.
 
 10. **Fill.** Run `./scale_for_upgrade.sh fill`, then confirm the rollout and
     load the site.

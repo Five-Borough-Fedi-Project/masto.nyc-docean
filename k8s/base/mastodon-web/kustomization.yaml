@@ -1,0 +1,9 @@
+# The Rails web tier. Both clusters run it; they differ in replica count and in
+# which env sources they read, so each cluster patches those.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - deployment.yaml
+  - service.yaml
+  - serviceaccount.yaml

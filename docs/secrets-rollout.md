@@ -31,13 +31,13 @@ tofu apply
 
 ```sh
 ./scripts/convert-private-configmaps-to-secrets.sh \
-  kubernetes/mastodon/private-configmap-env-secret.yaml \
-  kubernetes/cronjobs/private-configmap-storage-backups.yaml
+  k8s/secrets/private-configmap-env-secret.yaml \
+  k8s/secrets/private-configmap-storage-backups.yaml
 ```
 
 ```sh
-kubectl apply -f kubernetes/mastodon/private-configmap-env-secret.yaml
-kubectl apply -f kubernetes/cronjobs/private-configmap-storage-backups.yaml
+kubectl apply -f k8s/secrets/private-configmap-env-secret.yaml
+kubectl apply -f k8s/secrets/private-configmap-storage-backups.yaml
 ```
 
 Confirm all four exist as Secrets, with the ConfigMaps still beside them:
@@ -55,12 +55,12 @@ Both commands should succeed. That overlap is your safety margin.
 ## Step 2: point the workloads at the Secrets
 
 ```sh
-for f in kubernetes/mastodon/deployment-*.yaml; do kubectl apply -f "$f"; done
+for f in k8s/base/mastodon-web and k8s/apps/; do kubectl apply -f "$f"; done
 ```
 
 ```sh
-for f in kubernetes/cronjobs/cronjob-*.yaml; do
-  [ "$f" = "kubernetes/cronjobs/cronjob-pg-repack-statuses.yaml" ] || kubectl apply -f "$f"
+for f in k8s/apps/cronjobs/; do
+  [ "$f" = "k8s/apps/cronjobs/pg-repack-statuses.yaml" ] || kubectl apply -f "$f"
 done
 ```
 
@@ -125,7 +125,7 @@ Then, against the large cluster:
 
 ```sh
 kubectl apply -f <the converted file>
-kubectl apply -f clusters/large/deployment-web.yaml
+kubectl apply -f k8s/k8s/clusters/large/patch-web.yaml
 kubectl -n mastodon rollout status deployment/mastodon-web
 ```
 

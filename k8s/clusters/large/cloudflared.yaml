@@ -5,17 +5,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cloudflared
+  name: cloudflared-large
   namespace: mastodon
 spec:
   selector:
     matchLabels:
-      app: cloudflared
+      app: cloudflared-large
   replicas: 1 
   template:
     metadata:
       labels:
-        app: cloudflared
+        app: cloudflared-large
         security: web-ext
     spec:
       # https://github.com/cloudflare/cloudflared/issues/1109#issuecomment-2234239403
@@ -27,7 +27,7 @@ spec:
         - name: net.ipv4.ping_group_range
           value: "0           200000000"
       containers:
-      - name: cloudflared
+      - name: cloudflared-large
         image: cloudflare/cloudflared:2026.5.0
         args:
         - tunnel
@@ -62,11 +62,11 @@ spec:
           # kubectl create secret generic tunnel-credentials \
           # --from-file=credentials.json=/Users/yourusername/.cloudflared/<tunnel ID>.json
           # ```
-          secretName: tunnel-credentials
+          secretName: tunnel-credentials-large
       # Create a config.yaml file from the ConfigMap below.
       - name: config
         configMap:
-          name: cloudflared
+          name: cloudflared-large
           items:
           - key: config.yaml
             path: config.yaml
@@ -74,7 +74,7 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: cloudflared-sysctl
+  name: cloudflared-large-sysctl
   namespace: mastodon
 spec:
   selector:
@@ -85,7 +85,7 @@ spec:
       labels:
         app: sysctl
     spec:
-      hostNetwork: yes
+      hostNetwork: true
       initContainers:
         - name: init
           image: alpine

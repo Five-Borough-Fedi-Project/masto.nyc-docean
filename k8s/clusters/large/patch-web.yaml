@@ -1,0 +1,20 @@
+# large serves the normal web traffic, so it runs two replicas where
+# do-production keeps one as a fallback.
+#
+# It also reads a single merged mastodon-env-secret rather than the
+# do-production split of mastodon-env-secret plus mastodon-env-tf, because the
+# database endpoints differ: do-production uses VPC private hostnames, which do
+# not resolve from here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: mastodon-web
+          envFrom:
+            - secretRef:
+                name: mastodon-env-secret
