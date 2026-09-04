@@ -22,6 +22,50 @@ lets `mastodon-large` reach Postgres was added through the console, so it lives
 in reality and not in state. Applying those three resources with the variable
 empty removes it and cuts the web tier off from the database.
 
+## What the drift actually is
+
+Measured 2026-09-03 with `tofu plan -refresh-only`, which reads and writes
+nothing. Six resources had drifted.
+
+| resource | drift | risk | status |
+|---|---|---|---|
+| `digitalocean_kubernetes_cluster.mastodon_k8s` | `1.32.10-do.2` in config, `1.33.12-do.3` in reality | **forces replacement** | fixed by `ignore_changes` |
+| `digitalocean_database_cluster.mastodon_os` | `2` in config, `2.19` in reality | in place | fixed by `ignore_changes` |
+| `digitalocean_database_firewall.mastodon_pg` | an `ip_addr` rule added by console 2026-05-24 | would be deleted | fixed by `var.large_node_ips` |
+| `digitalocean_database_firewall.mastodon_redis` | same | would be deleted | same |
+| `digitalocean_database_firewall.mastodon_os` | same | would be deleted | same |
+| `digitalocean_firewall.k8s_private` | an outbound rule differs | low | unresolved, DOKS owns this firewall |
+
+### The cluster replacement
+
+`auto_upgrade = true`, so DigitalOcean upgraded the control plane on
+2026-07-27 while `kubernetes.tf` still pinned the old slug. Terraform read the
+config as authoritative and planned a downgrade, and a version downgrade forces
+replacement. Any apply would have destroyed and recreated production.
+
+`ignore_changes = [version]` resolves it, because `auto_upgrade` owns that
+attribute. To drive an upgrade from Terraform instead, remove the line and set
+`auto_upgrade = false`. Running both is how this happened.
+
+### `-target` is not a safety boundary
+
+The replacement was found while planning a database firewall, not the cluster.
+`-target` includes the target's dependencies, and every database firewall
+depends on the Kubernetes cluster through its `k8s` rule. So a narrow apply
+against one firewall would have taken the cluster with it.
+
+Scope a plan with `-target` to reduce output, never to bound blast radius. Read
+every resource in the plan, not the one you aimed at.
+
+### The firewall rules
+
+The address that lets `mastodon-large` reach the databases was added through
+the console in May and never existed in state. All three firewalls would have
+lost it on the next apply, cutting the web tier off from Postgres, Valkey and
+OpenSearch at once. Populating `var.large_node_ips` makes the config match
+reality; that change lives in the secrets pull request, so both need to land
+before an apply is safe.
+
 ## Step 0: guardrails and a backup
 
 Already done in code: `prevent_destroy = true` on the Kubernetes cluster, the
