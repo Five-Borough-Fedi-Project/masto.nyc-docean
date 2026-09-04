@@ -190,8 +190,7 @@ Plan: 2 to add, 3 to change, 0 to destroy.
   rather than the rendered output: each goes from two rules to two rules and
   keeps its `ip_addr` entry. The change is the computed `uuid` and `created_at`
   fields plus the new sensitivity marking, not the rule set.
-- **0 to destroy.** That is the number that matters. It was 1 before, and the
-  one was the Kubernetes cluster.
+- **0 to destroy.** It was 1 before, and the one was the Kubernetes cluster.
 
 The address does not appear anywhere in the plan output. It renders as
 `(sensitive value)`, which is what makes the phase 6 CI apply safe to turn on.
@@ -199,6 +198,27 @@ The address does not appear anywhere in the plan output. It renders as
 Do not read "0 to destroy" as permission to apply. The secrets change still
 needs the staged rollout in `docs/secrets-rollout.md`, and both pull requests
 have to land first.
+
+## "0 to destroy" is not a safety signal
+
+Measured on `main` after the guardrails landed and before the secrets change
+did:
+
+```
+Plan: 0 to add, 3 to change, 0 to destroy.
+```
+
+Applying that would remove the `ip_addr` rule from all three database
+firewalls and cut `mastodon-large` off from Postgres, Valkey and OpenSearch at
+once. Terraform classifies it as `update in-place`, because the firewall
+resource survives. Only a rule inside it disappears.
+
+The destroy count tracks resources, not consequences. A resource that stays
+alive with its contents emptied counts as zero. Read every `-` line in a plan,
+not the summary.
+
+This also means the plan on `main` is safe to run and not safe to apply until
+the secrets change lands, since that is what carries `var.large_node_ips`.
 
 ## Two things that will surprise you
 
