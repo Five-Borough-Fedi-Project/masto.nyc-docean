@@ -10,6 +10,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: mastodon
   name: mastodon-sidekiq-bulk
   labels:
     app.kubernetes.io/name: mastodon

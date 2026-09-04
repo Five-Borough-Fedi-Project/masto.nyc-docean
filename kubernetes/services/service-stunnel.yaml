@@ -3,6 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: mastodon
   name: stunnel
   labels:
     app.kubernetes.io/name: stunnel

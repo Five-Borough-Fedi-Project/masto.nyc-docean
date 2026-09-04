@@ -6,6 +6,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
+  namespace: mastodon
   name: sync-blocked-email-domains
 spec:
   schedule: 0 3 * * *
