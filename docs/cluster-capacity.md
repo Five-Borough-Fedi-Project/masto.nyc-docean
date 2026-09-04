@@ -63,20 +63,27 @@ Restarting reclaimed 808 MiB and took the worst node from 103% to 73%.
 While a node sits above 100%, containers get killed at their own limits.
 As of this measurement, `mastodon-sidekiq-pull` had been OOMKilled six times and
 `mastodon-sidekiq-ingress` three, both against 900 MiB limits, exit code 137.
+Those two deployments no longer exist; their queues moved into
+`mastodon-sidekiq-realtime` and `mastodon-sidekiq-bulk` on 2026-09-04.
 
 Raising those limits makes it worse. The limits are already generous for those
 queues, and the pressure comes from the node being full.
 
-Three ways out, none of them free:
+The first fix, applied 2026-09-04, was to stop paying the Rails boot cost seven
+times. Seven single-queue sidekiq deployments became three, which frees roughly
+1.6 GiB. Requests cannot come down: measured across the namespace they totalled
+4524 MiB against 4963 MiB of real usage, so the pods were already asking for
+less than they use. That is why nodes drift past 100%.
 
-1. **Restart `mastodon-web` weekly.** Hides the symptom, costs nothing, and
-   leaves you one busy week from the same problem.
+If pressure returns after the consolidation:
+
+1. **Restart `mastodon-web` weekly.** Hides the symptom and leaves you one busy
+   week from the same problem.
 2. **Add a fourth node.** Costs money, which for this project is the binding
    constraint.
 3. **Move work off do-production.** `mastodon-large` already serves the web
    tier. If Cloudflare can be weighted to prefer it, DO's `mastodon-web` could
-   drop to zero replicas and return 1024 MiB of requests, which is more
-   headroom than any of the other options.
+   drop to zero replicas and return 1024 MiB of requests.
 
 Option 3 needs confirmation on the Cloudflare side first. Both DO tunnels
 currently route `masto.nyc` to `mastodon-nginx`, which proxies to

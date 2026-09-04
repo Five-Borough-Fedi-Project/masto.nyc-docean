@@ -60,3 +60,8 @@ spec:
               name: mastodon-env-secret
           - configMapRef:
               name: mastodon-env-tf
+          env:
+            # Match DB_POOL to sidekiq concurrency. mastodon-env-secret sets 10
+            # globally against -c 25, so threads block on connection checkout.
+            - name: DB_POOL
+              value: "25"

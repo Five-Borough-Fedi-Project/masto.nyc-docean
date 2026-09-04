@@ -54,7 +54,8 @@ in step 8 both record failures from that night.
 ## The window
 
 7. **Drain.** `./scale_for_upgrade.sh drain` scales every Mastodon deployment
-   to zero, `mastodon-sidekiq-fasp` included.
+   to zero, including the consolidated `mastodon-sidekiq-realtime` and
+   `mastodon-sidekiq-bulk`.
 
 8. **Migrate.** With the site down you can skip the pre/post split. Upstream
    recommends one pass with post-deployment migrations enabled when services

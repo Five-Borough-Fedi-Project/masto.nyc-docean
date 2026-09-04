@@ -6,7 +6,7 @@
 |---|---|---|
 | web | yes, `replicas: 1`, fallback | yes, `replicas: 2`, the serving tier |
 | streaming | yes | no |
-| sidekiq (7 queues) | yes | no |
+| sidekiq (3 deployments) | yes | no |
 | nginx | yes | yes, identical config |
 | cloudflared | `masto-nyc`, `masto-nyc-small` | `masto-nyc-large` |
 | cronjobs | yes | no |
