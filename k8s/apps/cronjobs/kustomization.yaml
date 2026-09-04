@@ -1,0 +1,18 @@
+# Scheduled maintenance.
+#
+# pg-repack-statuses.yaml is deliberately absent: it is commented out end to end
+# and needs a one-time `CREATE EXTENSION pg_repack` as doadmin before it can
+# run. Add it here once that is done.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - media-prune-profiles.yaml
+  - media-remove-orphans.yaml
+  - media-remove.yaml
+  - migration-status.yaml
+  - postgres-backup.yaml
+  - preview-cards-remove.yaml
+  - statuses-remove.yaml
+  - sync-blocked-email-domains.yaml
+  - timeline-health-check.yaml

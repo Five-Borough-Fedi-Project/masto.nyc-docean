@@ -1,0 +1,21 @@
+# mastodon-large, the bare-metal cluster. Apply with --context=lab.
+# Only the mastodon namespace on that cluster is in scope.
+#
+# Runs the web tier and its own tunnel. Everything else, streaming, sidekiq and
+# the cronjobs, stays on do-production.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - ../../base/nginx
+  - ../../base/mastodon-web
+  - cloudflared.yaml
+  - cloudflared-config.yaml
+patches:
+  - path: patch-web.yaml
+    target:
+      kind: Deployment
+      name: mastodon-web
+images:
+  - name: ghcr.io/mastodon/mastodon
+    newTag: v4.7.0

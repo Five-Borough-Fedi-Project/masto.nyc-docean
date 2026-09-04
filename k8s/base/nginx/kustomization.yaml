@@ -1,0 +1,9 @@
+# nginx: cache, TLS-terminated-upstream headers, and the proxy to mastodon-web.
+# Identical on both clusters, which is why it lives in base.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml

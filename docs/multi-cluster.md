@@ -85,7 +85,7 @@ overlays.
 apps/mastodon/base/          shared manifests: web, streaming, sidekiq, nginx,
                              cloudflared, cronjobs
 clusters/do-production/      Flux entry point, patches in private DB endpoints
-clusters/large/              Flux entry point, patches in public DB endpoints
+k8s/clusters/large/              Flux entry point, patches in public DB endpoints
 secrets/shared/              encrypted to both age keys
 secrets/do-production/       encrypted to the DO key
 secrets/large/               encrypted to the large key

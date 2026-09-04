@@ -1,0 +1,10 @@
+# The two DigitalOcean tunnels: masto-nyc carries masto.nyc and
+# streaming.masto.nyc, masto-nyc-small carries masto.nyc only.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - masto-nyc.yaml
+  - masto-nyc-config.yaml
+  - masto-nyc-small.yaml
+  - masto-nyc-small-config.yaml
