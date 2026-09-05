@@ -1,0 +1,27 @@
+# SOPS encryption rules, keyed by path.
+#
+# Two age keys, one per cluster, so that compromising the bare-metal cluster
+# does not also hand over the DigitalOcean tunnel credentials. Shared values
+# encrypt to both.
+#
+#   do-production  age1qky2jy0fqdputaryf4s57jt8x8cnwrc4cxnuzrgggd8p5vxxhytqkt8g8s
+#   large          age1g6khmvfnx2granm54384txt5tdpgavczddxqdjvgrqg4xlvnngvqzzftfd
+#
+# encrypted_regex leaves metadata, kind and apiVersion readable. Only the values
+# under data and stringData are encrypted, so a reviewer can see which Secret a
+# file defines and which keys it sets without being able to read any of them.
+# Flux needs that too: it matches resources by name before decrypting.
+creation_rules:
+  - path_regex: k8s/secrets/shared/.*\.sops\.ya?ml$
+    encrypted_regex: '^(data|stringData)$'
+    age: >-
+      age1qky2jy0fqdputaryf4s57jt8x8cnwrc4cxnuzrgggd8p5vxxhytqkt8g8s,
+      age1g6khmvfnx2granm54384txt5tdpgavczddxqdjvgrqg4xlvnngvqzzftfd
+
+  - path_regex: k8s/secrets/do-production/.*\.sops\.ya?ml$
+    encrypted_regex: '^(data|stringData)$'
+    age: age1qky2jy0fqdputaryf4s57jt8x8cnwrc4cxnuzrgggd8p5vxxhytqkt8g8s
+
+  - path_regex: k8s/secrets/large/.*\.sops\.ya?ml$
+    encrypted_regex: '^(data|stringData)$'
+    age: age1g6khmvfnx2granm54384txt5tdpgavczddxqdjvgrqg4xlvnngvqzzftfd

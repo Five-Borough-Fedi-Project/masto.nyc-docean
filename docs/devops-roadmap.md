@@ -32,7 +32,7 @@ password and the Spaces keys straight into a public log.
 | 1 | Safe fixes: pin images, restrict the build workflow to main, add the migration-status check | | this branch |
 | 2 | Move credentials from ConfigMaps into Secrets | 0 | next |
 | 3 | Kustomize: shared base plus one overlay per cluster | 2 | |
-| 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | |
+| 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | config written, needs `./scripts/encrypt-secrets.sh` |
 | 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | |
 | 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | workflow written, needs secrets |
 | 7 | Renovate for image bumps | 3 | |
