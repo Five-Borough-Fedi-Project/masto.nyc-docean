@@ -6,72 +6,33 @@ This is the github repo for the [masto.nyc](https://masto.nyc/about) v2.0 infras
 
 Since we came from a bare metal Kubernetes setup, we wanted to maintain as much of that infrastructure as possible- and we also wanted to follow our server principals of supporting NYC-based companies whenever possible. Luckily, Digital Ocean not only offered a k8s package but is also based out of NYC!
 
-## How deployment works
+## Deployment
 
-Both clusters run [Flux](https://fluxcd.io/), so **merging to `main` deploys**.
-Change a manifest under `k8s/`, open a pull request, merge, and each cluster
-reconciles within ten minutes. `kubectl apply` is no longer how things ship, and
-manual changes get reverted.
+Both clusters run [Flux](https://fluxcd.io/). **Merging to `main` deploys.**
+Manual `kubectl` changes get reverted within ten minutes. OpenTofu plans on every
+PR and applies on merge behind an approval gate.
 
-Infrastructure is OpenTofu, planned on every pull request and applied on merge
-behind an approval gate.
+## Flux
 
-## Flux, day to day
-
-Two kubectl contexts: `do` for DigitalOcean, `lab` for the `large` cluster.
-Always pass `--context`. Both clusters have a `mastodon` namespace holding
-objects with the same names, and there is nothing in a prompt to tell you which
-one you are pointed at.
-
-Check that a cluster is reconciling. All three should report `True` on the same
-revision:
+Contexts are `do` and `lab`. **Always pass `--context`.** Both clusters have a
+`mastodon` namespace with identically named objects.
 
 ```sh
-flux --context=do get kustomizations
-```
-
-Pull and apply immediately, without waiting for the ten minute interval:
-
-```sh
-flux --context=do reconcile kustomization apps --with-source
-```
-
-Stop Flux reverting you while you debug something by hand, and start it again
-afterwards:
-
-```sh
-flux --context=do suspend kustomization apps
+flux --context=do get kustomizations                           # is it reconciling
+flux --context=do reconcile kustomization apps --with-source   # deploy now
+flux --context=do suspend kustomization apps                   # stop it reverting you
 flux --context=do resume kustomization apps
+flux --context=do events --for Kustomization/apps              # why it failed
+kubectl --context=do diff -k k8s/clusters/do-production        # cluster vs repo
 ```
 
-**Suspend both clusters before a Mastodon upgrade.** The upgrade scales
-deployments to zero, and a running Flux will scale them back up while the
-database is half migrated. See `docs/upgrade-runbook.md`.
+**Suspend both clusters before a Mastodon upgrade**, or Flux scales the site
+back up mid-migration. See `docs/upgrade-runbook.md`.
 
-Find out why a reconcile failed. `events` is usually enough, and `logs` reads
-the controller output without the raw JSON:
+## docs/
 
-```sh
-flux --context=do events --for Kustomization/apps
-flux --context=do logs --kind=Kustomization --name=apps --tail=20
-```
-
-Compare a cluster against the repository without changing anything. Silence
-means they agree:
-
-```sh
-kubectl --context=do diff -k k8s/clusters/do-production
-kubectl --context=lab diff -k k8s/clusters/large
-```
-
-## About docs/
-
-**Everything under `docs/` is AI slop.** It was written by an LLM and no human
-has edited the prose. The commands and measurements in it were checked against
-the live clusters at the time of writing, so the facts were true when they were
-written. The writing is machine-generated throughout, it is far longer than it
-needs to be, and it will drift as the infrastructure changes. Read it for the
-commands and treat the rest with suspicion.
+**AI slop.** Written by an LLM, unedited. The commands and numbers were checked
+against the live clusters when written. Trust those, ignore the prose.
 
 ## Setup instructions:
 
@@ -84,7 +45,5 @@ commands and treat the rest with suspicion.
 5. [Follow these steps to set up kubectl.](https://docs.digitalocean.com/products/k8s/how-to/connect-to-cluster/)
 6. cheers.
 
-The state backend has no lock, so two people running `tofu apply` at once will
-step on each other. CI serialises its own applies with a concurrency group, but
-that does not protect against someone applying from a laptop at the same time.
-Prefer letting CI do it.
+The state backend has no lock. Two people running `tofu apply` at once will step
+on each other, so prefer letting CI do it.
