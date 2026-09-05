@@ -1,0 +1,24 @@
+# metrics-server, the metrics.k8s.io API that backs `kubectl top`.
+#
+# Upstream v0.8.0 manifests, unmodified except for the memory request. This is
+# not new software on do-production: an identically-configured metrics-server
+# has been running since the cluster was built, but it arrived as a dependency
+# of the BetterStack logging chart and inherited that chart's naming, so it was
+# called `betterstack-logs-metrics-server` and lived in the mastodon namespace.
+# Nothing about it was BetterStack's. The large cluster has always run it under
+# the ordinary name in kube-system; this makes do-production match.
+#
+# Applied out of band, like ../monitoring, because it targets kube-system
+# rather than the mastodon namespace that the cluster overlays own.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - api-service.yaml
+  - cluster-role-aggregated-metrics-reader.yaml
+  - cluster-role-binding-metrics-server.yaml
+  - cluster-role-binding-auth-delegator.yaml
+  - cluster-role-metrics-server.yaml
+  - deployment.yaml
+  - role-binding.yaml
+  - service-account.yaml
+  - service.yaml
