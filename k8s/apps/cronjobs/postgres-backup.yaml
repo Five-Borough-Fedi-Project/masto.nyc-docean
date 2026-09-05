@@ -30,6 +30,16 @@ spec:
           restartPolicy: Never
           containers:
             - name: postgres-backup
+              # No limit, deliberately. This dumps a 43GB database and runs for
+              # about 50 minutes, and an OOMKill at minute 49 loses the backup
+              # and leaves no useful signal. Nothing has ever measured its peak,
+              # so a guessed ceiling would be a guess about when to lose a
+              # night's backup. The request keeps it off a full node; add a
+              # limit once something records what it actually uses.
+              resources:
+                requests:
+                  memory: "192Mi"
+                  cpu: "100m"
               image: eeshugerman/postgres-backup-s3:16@sha256:cfcaa57732c13d0724312a2eea1ad3e385f5ed049de3c626d1ef28ecc13cdddb
               command:
                 - /bin/sh
