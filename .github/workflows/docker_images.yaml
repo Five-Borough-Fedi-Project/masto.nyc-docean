@@ -300,9 +300,22 @@ jobs:
             echo "Changed: \`${FILES}\`"
           } > /tmp/body
 
-          if ! gh pr create --base main --head "$branch" \
+          # Creating a pull request needs an organisation setting that is off
+          # here. The branch is what matters, so a refusal is reported and the
+          # run still passes.
+          if gh pr create --base main --head "$branch" \
                --title "k8s: point first-party images at ${short}" \
                --assignee "$ACTOR" --body-file /tmp/body; then
-            echo "::error::Could not open the pull request. Check Settings > Actions > 'Allow GitHub Actions to create and approve pull requests'. Branch ${branch} is pushed, so it can be opened by hand."
-            exit 1
+            echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
+          else
+            url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+            echo "::warning::Could not open the pull request. The branch is pushed."
+            {
+              echo "### Branch pushed, pull request not opened"
+              echo
+              echo "The organisation forbids GitHub Actions from creating pull"
+              echo "requests, so \`${branch}\` has to be opened by hand."
+              echo
+              echo "[Open it here](${url})"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
