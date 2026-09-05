@@ -44,13 +44,20 @@ spec:
         - --config
         - /etc/cloudflared/config/config.yaml
         - run
-        livenessProbe:
+        # /ready returns 200 if and only if cloudflared holds an active
+        # connection to the edge. Readiness on the same endpoint keeps a tunnel
+        # that has lost the edge out of the Service instead of only restarting
+        # it, which matters while the replacement is still connecting.
+        readinessProbe:
           httpGet:
-            # Cloudflared has a /ready endpoint which returns 200 if and only if
-            # it has an active connection to the edge.
             path: /ready
             port: 2000
-          failureThreshold: 1
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          failureThreshold: 3
           initialDelaySeconds: 10
           periodSeconds: 10
         volumeMounts:

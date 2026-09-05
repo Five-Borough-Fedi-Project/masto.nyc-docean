@@ -38,6 +38,20 @@ spec:
         runAsUser: 991
       containers:
         - name: mastodon
+          # Sidekiq serves no HTTP, so there is nothing to probe over a socket.
+          # Mastodon touches this file once the process is ready to take jobs,
+          # and the upstream chart offers exactly this probe. It ships disabled
+          # because the path is configurable; the file is present here, checked
+          # on a running pod.
+          readinessProbe:
+            exec:
+              command:
+                - cat
+                - /opt/mastodon/tmp/sidekiq_process_has_started_and_will_begin_processing_jobs
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 10
           resources:
             requests:
               memory: "500Mi"

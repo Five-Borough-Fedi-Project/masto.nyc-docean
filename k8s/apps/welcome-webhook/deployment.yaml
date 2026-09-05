@@ -26,6 +26,18 @@ spec:
             memory: "192Mi"
         ports:
         - containerPort: 80
+        # The app exposes one POST route. GET / answers 405, which an httpGet
+        # probe counts as a failure, and /docs only works while FastAPI's docs
+        # are enabled. A socket check is the honest option.
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          periodSeconds: 20
+          failureThreshold: 3
         env:
         - name: "WELCOMEACCESSTOKEN"
           valueFrom:

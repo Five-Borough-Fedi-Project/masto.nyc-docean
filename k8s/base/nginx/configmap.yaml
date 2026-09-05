@@ -45,6 +45,15 @@ data:
         gzip_http_version 1.1;
         gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml image/x-icon;
 
+        # Answered by nginx itself. `location /` proxies to mastodon-web, so
+        # probing it would report nginx unhealthy whenever Rails is unhealthy
+        # and take the proxy down with it.
+        location = /healthz {
+          access_log off;
+          add_header Content-Type text/plain;
+          return 200 "ok\n";
+        }
+
         location / {
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;

@@ -34,6 +34,17 @@ spec:
           ports:
           - containerPort: 80
             name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
           volumeMounts:
             - name: masto-nginx-config
               mountPath: /etc/nginx/nginx.conf
