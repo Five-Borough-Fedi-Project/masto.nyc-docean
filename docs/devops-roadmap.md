@@ -49,12 +49,27 @@ Phases outside the original plan, added as they surfaced:
 | e | Priority classes, a disruption budget on `large`, topology spread | done |
 | f | Deadlines and backoff limits on the two unbounded cronjobs | done |
 | g | Remove page-replica and the vestigial haproxy ConfigMap | done |
+| h | Probes for the workloads that had none, 6 of 17 containers to 13 | done |
+| i | Fix the libretranslate Service selector, which never matched a pod | done |
 
 Phase 8 is the only one outstanding. Everything above it landed between
 2026-08-31 and 2026-09-05.
 
 ## Still open, outside the phases
 
+- **No container sets a securityContext.** Across both clusters, 0 of 26
+  containers set `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false` or
+  drop capabilities, and 3 set `runAsNonRoot`. This was on the original review
+  list and has never been touched.
+- **Seven CronJobs declare no memory request**, so they run BestEffort and are
+  first to be evicted: postgres-backup, statuses-remove, media-remove,
+  media-remove-orphans, media-prune-profiles, preview-cards-remove and
+  sync-blocked-email-domains. Some are long and heavy, with postgres-backup
+  taking 50 minutes against a 43GB database. The memory request work covered
+  Deployments and stopped there.
+- **Is the home IP static?** The `large` database allowlist is a single address.
+  If that address is handed out by DHCP, the path from large to Postgres breaks
+  silently one day. Never answered.
 - **Rotate the DO token and Spaces keys.** Scheduled reminder 2026-09-25. The
   BetterStack half of that exposure was closed on 2026-09-05.
 - **Delete the plaintext `private-*` files** now that encrypted copies are
