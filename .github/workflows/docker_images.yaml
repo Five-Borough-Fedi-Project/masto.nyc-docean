@@ -35,21 +35,86 @@ permissions:
   packages: write
 
 jobs:
+  # Works out which images this change actually touches, so a change under
+  # docker/welcome-bot does not rebuild and republish timeline-health.
+  #
+  # This is not only about wasted minutes. bump-manifests points manifests at
+  # this commit's SHA, and it may only do that for images this run genuinely
+  # pushed. Rebuilding everything made that safe by accident; building a subset
+  # makes `names` load-bearing.
   find-dockerfiles:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      names: ${{ steps.set-matrix.outputs.names }}
+      any: ${{ steps.set-matrix.outputs.any }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-      - name: Find Dockerfiles
+        with:
+          # Needed to diff against the base or the previous commit.
+          fetch-depth: 0
+
+      - name: Work out which images changed
         id: set-matrix
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          files=$(find ./docker -mindepth 2 -maxdepth 2 -name Dockerfile | jq -R . | jq -cs .)
-          echo "matrix=$files" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          if [ "$EVENT" = "pull_request" ]; then
+            git fetch -q --depth=1 origin "$BASE_REF"
+            range="origin/${BASE_REF}...HEAD"
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            range="${BEFORE}..HEAD"
+          else
+            # First push on a branch, or a force push that orphaned `before`.
+            range="HEAD~1..HEAD"
+          fi
+          echo "comparing $range"
+          changed=$(git diff --name-only $range || true)
+          echo "$changed" | sed 's/^/  /'
+
+          # If the workflow itself changed, the build logic changed, so rebuild
+          # everything rather than reasoning about what that edit might affect.
+          if echo "$changed" | grep -qx '.github/workflows/docker_images.yaml'; then
+            echo "workflow changed, rebuilding every image"
+            dirs=$(find docker -mindepth 2 -maxdepth 2 -name Dockerfile -printf '%h\n' | sort)
+          else
+            dirs=$(echo "$changed" \
+              | grep -E '^docker/[^/]+/' \
+              | cut -d/ -f1,2 \
+              | sort -u \
+              | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done)
+          fi
+
+          if [ -z "${dirs:-}" ]; then
+            echo "no image directories affected"
+            {
+              echo "matrix=[]"
+              echo "names="
+              echo "any=no"
+            } >> "$GITHUB_OUTPUT"
+            echo "No image needed rebuilding." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          matrix=$(echo "$dirs" | sed 's|$|/Dockerfile|' | jq -R . | jq -cs .)
+          names=$(echo "$dirs" | sed 's|^docker/||' | tr '\n' ' ' | sed 's/ $//')
+          echo "building: $names"
+          {
+            echo "matrix=$matrix"
+            echo "names=$names"
+            echo "any=yes"
+          } >> "$GITHUB_OUTPUT"
+          echo "Rebuilding: $names" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-push:
     needs: find-dockerfiles
+    if: needs.find-dockerfiles.outputs.any == 'yes'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -100,7 +165,7 @@ jobs:
   # applies main and a bad tag would deploy itself.
   bump-manifests:
     needs: [find-dockerfiles, build-and-push]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.find-dockerfiles.outputs.any == 'yes'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -112,13 +177,15 @@ jobs:
         id: bump
         env:
           SHA: ${{ github.sha }}
+          NAMES: ${{ needs.find-dockerfiles.outputs.names }}
         run: |
           python3 - <<'PY'
           import os, re, pathlib
           sha = os.environ["SHA"]
-          # Every Dockerfile under docker/ is rebuilt and pushed on any change
-          # in that tree, so every first-party image carries this commit's SHA.
-          names = sorted(p.parent.name for p in pathlib.Path("docker").glob("*/Dockerfile"))
+          # Only the images this run actually pushed. Bumping a manifest for an
+          # image that was not rebuilt would point it at a tag that does not
+          # exist in the registry.
+          names = sorted(os.environ["NAMES"].split())
           prefix = r"ghcr\.io/five-borough-fedi-project/masto\.nyc-docean/"
           changed = []
           for f in sorted(pathlib.Path("k8s").rglob("*.yaml")):
