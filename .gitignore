@@ -41,3 +41,34 @@ terraform.rc
 
 # AI BS
 copilot-*
+
+# Local environments and caches. None of this belongs in the repo, and the
+# reason it is listed explicitly is that `git add -A` does not ask: on
+# 2026-09-04 it swept two untracked files carrying a BetterStack token into
+# this public repository. A virtualenv is thousands of files, some of them
+# credentials-shaped, one careless `git add -A` away.
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+
+# Environment files. These exist to hold secrets.
+.env
+.env.*
+!.env.example
+
+# Age and SSH private keys, wherever they land.
+*.agekey
+*.key
+id_rsa
+id_ed25519
+
+# OS and editor droppings
+.DS_Store
+Thumbs.db
+*.swp
