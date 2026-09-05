@@ -48,6 +48,8 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       names: ${{ steps.set-matrix.outputs.names }}
       any: ${{ steps.set-matrix.outputs.any }}
+      deploy_names: ${{ steps.set-matrix.outputs.deploy_names }}
+      deploy_any: ${{ steps.set-matrix.outputs.deploy_any }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
@@ -78,39 +80,57 @@ jobs:
           changed=$(git diff --name-only $range || true)
           echo "$changed" | sed 's/^/  /'
 
-          # If the workflow itself changed, the build logic changed, so rebuild
-          # everything rather than reasoning about what that edit might affect.
+          # Images whose own source actually changed. These are the ones worth
+          # deploying.
+          # `|| true` because grep exits 1 when nothing matches, and under
+          # `set -o pipefail` that would end the step rather than mean "no
+          # images changed", which is a perfectly ordinary answer here.
+          content_dirs=$(echo "$changed" \
+            | grep -E '^docker/[^/]+/' \
+            | cut -d/ -f1,2 \
+            | sort -u \
+            | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done || true)
+
+          # If the workflow itself changed, rebuild everything, because the
+          # build logic changed and reasoning about what that edit affects is
+          # not worth the risk. Building is cheap and proves the change works.
+          #
+          # Deploying is a different question. A workflow edit does not change
+          # what is inside an image, so bumping the manifests would restart
+          # every pod to run byte-identical software. Build wide, deploy narrow.
           if echo "$changed" | grep -qx '.github/workflows/docker_images.yaml'; then
-            echo "workflow changed, rebuilding every image"
-            dirs=$(find docker -mindepth 2 -maxdepth 2 -name Dockerfile -printf '%h\n' | sort)
+            echo "workflow changed, rebuilding every image to validate the change"
+            build_dirs=$(find docker -mindepth 2 -maxdepth 2 -name Dockerfile -printf '%h\n' | sort)
           else
-            dirs=$(echo "$changed" \
-              | grep -E '^docker/[^/]+/' \
-              | cut -d/ -f1,2 \
-              | sort -u \
-              | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done)
+            build_dirs="$content_dirs"
           fi
 
-          if [ -z "${dirs:-}" ]; then
+          emit() { echo "$1" >> "$GITHUB_OUTPUT"; }
+
+          if [ -z "${build_dirs:-}" ]; then
             echo "no image directories affected"
-            {
-              echo "matrix=[]"
-              echo "names="
-              echo "any=no"
-            } >> "$GITHUB_OUTPUT"
+            emit "matrix=[]"; emit "names="; emit "any=no"
+            emit "deploy_names="; emit "deploy_any=no"
             echo "No image needed rebuilding." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          matrix=$(echo "$dirs" | sed 's|$|/Dockerfile|' | jq -R . | jq -cs .)
-          names=$(echo "$dirs" | sed 's|^docker/||' | tr '\n' ' ' | sed 's/ $//')
+          matrix=$(echo "$build_dirs" | sed 's|$|/Dockerfile|' | jq -R . | jq -cs .)
+          names=$(echo "$build_dirs" | sed 's|^docker/||' | tr '\n' ' ' | sed 's/ *$//')
+          emit "matrix=$matrix"; emit "names=$names"; emit "any=yes"
           echo "building: $names"
-          {
-            echo "matrix=$matrix"
-            echo "names=$names"
-            echo "any=yes"
-          } >> "$GITHUB_OUTPUT"
           echo "Rebuilding: $names" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -z "${content_dirs:-}" ]; then
+            emit "deploy_names="; emit "deploy_any=no"
+            echo "deploying: nothing, no image source changed"
+            echo "No manifest bump: no image source changed, only the workflow." >> "$GITHUB_STEP_SUMMARY"
+          else
+            deploy_names=$(echo "$content_dirs" | sed 's|^docker/||' | tr '\n' ' ' | sed 's/ *$//')
+            emit "deploy_names=$deploy_names"; emit "deploy_any=yes"
+            echo "deploying: $deploy_names"
+            echo "Manifest bump for: $deploy_names" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   build-and-push:
     needs: find-dockerfiles
@@ -165,7 +185,7 @@ jobs:
   # applies main and a bad tag would deploy itself.
   bump-manifests:
     needs: [find-dockerfiles, build-and-push]
-    if: github.event_name == 'push' && needs.find-dockerfiles.outputs.any == 'yes'
+    if: github.event_name == 'push' && needs.find-dockerfiles.outputs.deploy_any == 'yes'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -177,7 +197,7 @@ jobs:
         id: bump
         env:
           SHA: ${{ github.sha }}
-          NAMES: ${{ needs.find-dockerfiles.outputs.names }}
+          NAMES: ${{ needs.find-dockerfiles.outputs.deploy_names }}
         run: |
           python3 - <<'PY'
           import os, re, pathlib
