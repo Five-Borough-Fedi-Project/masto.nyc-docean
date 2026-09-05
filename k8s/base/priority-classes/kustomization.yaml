@@ -1,0 +1,14 @@
+# Two priority classes, applied to both clusters.
+#
+# Kubernetes decides eviction order under node pressure by QoS class first and
+# priority second. Every workload here now declares memory requests, so QoS no
+# longer separates them, and priority is what is left to say that Rails matters
+# more than the translation service.
+#
+# Deliberately only two classes plus the unset default. A finer ranking would
+# be a guess at an ordering nobody has needed yet.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - critical.yaml
+  - low.yaml

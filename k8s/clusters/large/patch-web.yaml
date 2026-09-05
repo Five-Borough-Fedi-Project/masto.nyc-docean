@@ -13,8 +13,31 @@ spec:
   replicas: 2
   template:
     spec:
+      # The two replicas already sit on separate nodes, but by scheduler
+      # accident rather than by instruction. ScheduleAnyway rather than
+      # DoNotSchedule: spread is the preference, and a replica running beside
+      # its twin still beats a replica that will not start because the only
+      # other node is cordoned.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: mastodon
+              app.kubernetes.io/instance: mastodon
+              app.kubernetes.io/component: web
       containers:
         - name: mastodon-web
+          # Measured 2026-09-05: 1166Mi and 1189Mi across the two replicas,
+          # against a 1Gi request. A Burstable pod sitting above its own
+          # request is chosen for eviction before one sitting below it, so the
+          # request was quietly making the web tier a preferred victim. These
+          # nodes run at 6 to 11 percent, so the reservation costs nothing.
+          resources:
+            requests:
+              memory: "1536Mi"
+              cpu: "200m"
           envFrom:
             - secretRef:
                 name: mastodon-env-secret

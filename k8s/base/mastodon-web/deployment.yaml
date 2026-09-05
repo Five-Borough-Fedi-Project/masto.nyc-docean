@@ -25,6 +25,7 @@ spec:
         app.kubernetes.io/component: web
         app.kubernetes.io/part-of: rails
     spec:
+      priorityClassName: masto-critical
       serviceAccountName: mastodon
       securityContext:
         fsGroup: 991
@@ -35,6 +36,21 @@ spec:
         #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
+          # No memory limit, on purpose.
+          #
+          # Puma grows over a long run and drops back on restart: 814Mi here
+          # against 1166Mi and 1189Mi on large, and it has been seen above
+          # 1100Mi on do-production before a restart reclaimed 808Mi. A limit
+          # has to sit above the real peak, and nothing in this cluster has
+          # recorded a peak. The metrics pipeline that could have was
+          # BetterStack's vector, which is being removed, and it shipped logs
+          # rather than retained series anyway.
+          #
+          # A limit guessed too low does not degrade the web tier, it OOMKills
+          # it, which is worse than the unbounded growth it would be guarding
+          # against. Until something here retains history, the protection comes
+          # from the request being honest and from masto-critical putting this
+          # pod last in the eviction order.
           resources:
             requests:
               memory: "1024Mi"

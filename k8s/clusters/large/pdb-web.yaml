@@ -1,0 +1,19 @@
+# large is the only place a PodDisruptionBudget means anything: it is the only
+# deployment in either cluster with more than one replica.
+#
+# minAvailable: 1 against two replicas lets a node be drained, one at a time,
+# without taking the web tier to zero. On do-production the same object would
+# be actively harmful, because every deployment there runs a single replica and
+# minAvailable: 1 on a single replica blocks the drain forever.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-web
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mastodon
+      app.kubernetes.io/instance: mastodon
+      app.kubernetes.io/component: web

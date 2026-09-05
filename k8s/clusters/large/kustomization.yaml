@@ -7,10 +7,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: mastodon
 resources:
+  - ../../base/priority-classes
   - ../../base/nginx
   - ../../base/mastodon-web
   - cloudflared.yaml
   - cloudflared-config.yaml
+  - pdb-web.yaml
 patches:
   - path: patch-web.yaml
     target:
