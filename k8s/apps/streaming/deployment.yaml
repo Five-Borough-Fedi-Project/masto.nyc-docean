@@ -32,6 +32,16 @@ spec:
         - name: mastodon-streaming
           image: "ghcr.io/mastodon/mastodon-streaming:v4.7.0"
           imagePullPolicy: IfNotPresent
+          # Sized from measurement, 2026-09-05: 97Mi and 10m on do-production.
+          # Without a request this pod is BestEffort, and BestEffort is the
+          # first QoS class the kubelet evicts under node pressure. That put
+          # the websocket tier at the front of the queue.
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "25m"
+            limits:
+              memory: "384Mi"
           command:
             - node
             - ./streaming

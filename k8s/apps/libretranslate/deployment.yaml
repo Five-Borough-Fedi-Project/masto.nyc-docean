@@ -15,6 +15,17 @@ spec:
       containers:
       - name: libretranslate
         image: docker.io/libretranslate/libretranslate:v1.6.0
+        # Sized from measurement, 2026-09-05: 186Mi and 1m on do-production.
+        # The limit is deliberately loose because LT_UPDATE_MODELS pulls
+        # language models at startup and that is the memory peak, not steady
+        # state. Before this the pod was BestEffort and invisible to the
+        # scheduler despite being the third largest thing in the namespace.
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "10m"
+          limits:
+            memory: "768Mi"
         ports:
         - containerPort: 5000
         env:
