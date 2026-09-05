@@ -61,19 +61,29 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
-          # livenessProbe: 
-          #   tcpSocket:
-          #     port: http 
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          # startupProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          #   failureThreshold: 60
-          #   periodSeconds: 5
+          # Enabled 2026-09-05. Without a readiness probe the pod reports Ready
+          # the moment the container starts, roughly 30 to 60 seconds before
+          # Puma accepts connections, so nginx proxies to a socket that is not
+          # listening. Observed directly during a restart on 2026-09-04.
+          #
+          # startupProbe first: 60 failures at 5s gives Puma five minutes to
+          # boot, and liveness does not run until it passes, so a slow start
+          # cannot be mistaken for a hang.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
         ### Currently nginx is just a standalone pod, but this setup MAY
         ### be more ideal as a sidecar. It also will probably need some sort
         ### of shared cache configured that I haven't accounted for here yet.
