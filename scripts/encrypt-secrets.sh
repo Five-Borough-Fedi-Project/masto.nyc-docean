@@ -11,7 +11,9 @@ set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"
 
-export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/do-production.txt}"
+# sops reads ~/.config/sops/age/keys.txt by default and tries every key in it,
+# which is what lets one command decrypt both clusters' files. Encryption needs
+# no private key at all: the recipients come from .sops.yaml.
 
 command -v sops >/dev/null || { echo "!! sops is not installed" >&2; exit 69; }
 

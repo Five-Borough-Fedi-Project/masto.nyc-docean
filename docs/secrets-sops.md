@@ -33,8 +33,18 @@ sudo apt install age
 # https://github.com/getsops/sops/releases
 ```
 
-Keys live in `~/.config/sops/age/`. Back up both private keys somewhere off
-this machine. They are now the single thing standing between a lost laptop and
+Keys live in `~/.config/sops/age/`. Concatenate both into the path sops reads
+by default, so one command can decrypt either cluster's files:
+
+```sh
+cat ~/.config/sops/age/do-production.txt ~/.config/sops/age/large.txt \
+  > ~/.config/sops/age/keys.txt
+chmod 600 ~/.config/sops/age/keys.txt
+```
+
+Encryption needs no private key; the recipients come from `.sops.yaml`.
+
+Back up both private keys somewhere off this machine. They are now the single thing standing between a lost laptop and
 unrecoverable secrets, which is a smaller surface than seven files but not zero.
 
 ## First encryption
@@ -86,6 +96,17 @@ decryption:
 
 That Secret is created out of band, once per cluster, and is deliberately the
 one thing not in git.
+
+## Two secrets existed only in the cluster
+
+`welcome-access` and `sync-blocked-email-domains` had files in the repository,
+but both were commented out end to end: zero parseable documents. The Secrets
+existed in the cluster and nowhere else, so the phase 0 backup covered files
+that could not recreate them. Losing the cluster would have lost both.
+
+They were exported from the live cluster on 2026-09-05, stripped of runtime
+metadata, encrypted and committed. If you ever wonder whether a `private-*`
+file is real, check that it parses rather than that it exists.
 
 ## Known duplication
 
