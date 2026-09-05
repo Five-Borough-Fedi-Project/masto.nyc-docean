@@ -33,10 +33,10 @@ password and the Spaces keys straight into a public log.
 | 2 | Move credentials from ConfigMaps into Secrets | 0 | done, both clusters |
 | 3 | Kustomize: shared base plus one overlay per cluster | 2 | done |
 | 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | encrypted and committed; plaintext `private-*` files still on disk |
-| 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | manifests written; `flux bootstrap` is manual |
+| 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | **done 2026-09-05**, both clusters reconciling |
 | 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | done, plan clean |
-| 7 | Renovate for image bumps | 3 | not started |
-| 8 | Revisit Cilium network policies | everything above | last |
+| 7 | Renovate for image bumps | 3 | **done 2026-09-05**, app installed |
+| 8 | Revisit Cilium network policies | everything above | the only phase left. See issue #14 |
 
 Phases outside the original plan, added as they surfaced:
 
@@ -46,6 +46,32 @@ Phases outside the original plan, added as they surfaced:
 | b | Honest memory requests for the BestEffort workloads | done |
 | c | Remove vector, rename metrics-server to its real name | done |
 | d | Secret scanning on every pull request | done |
+| e | Priority classes, a disruption budget on `large`, topology spread | done |
+| f | Deadlines and backoff limits on the two unbounded cronjobs | done |
+| g | Remove page-replica and the vestigial haproxy ConfigMap | done |
+
+Phase 8 is the only one outstanding. Everything above it landed between
+2026-08-31 and 2026-09-05.
+
+## Still open, outside the phases
+
+- **Rotate the DO token and Spaces keys.** Scheduled reminder 2026-09-25. The
+  BetterStack half of that exposure was closed on 2026-09-05.
+- **Delete the plaintext `private-*` files** now that encrypted copies are
+  committed and Flux applies them. Phase 4's tail.
+- **`scale_for_upgrade.sh` passes no `--context`** and only knows the
+  do-production topology. Both clusters have a `mastodon` namespace with
+  identically named deployments. See `docs/upgrade-runbook.md` step 7.
+- **`timeline-health-check` fires on a 60 second freshness threshold** while
+  running every five minutes, so it cannot tell a stalled federation from a
+  quiet minute. It failed twice on 2026-09-05 at 61.1 seconds.
+- **`sync-blocked-email-domains` has no Dockerfile in this repository.** Its
+  image is pinned by digest, so it will not change under you, but it cannot be
+  rebuilt from anything here.
+- **Split `mastodon-env-secret`** into shared identity plus a per-cluster
+  database secret. Roughly 30 values are currently duplicated by hand.
+- **`k8s/infrastructure/` is applied out of band**, so metrics-server and
+  kube-state-metrics sit outside GitOps.
 
 ## Notes
 
@@ -65,10 +91,13 @@ with `CreateContainerConfigError`.
    deployments.
 3. Remove the ConfigMap resources.
 
-**Phase 5** uses Flux rather than Argo CD. Argo wants 1 to 2 GiB across its
-components. The DO cluster has 12 GiB across three nodes and already runs
-Mastodon, two tunnels, Vector and LibreTranslate. Flux's four controllers fit in
-roughly 300 MiB and decrypt SOPS without a plugin.
+**Phase 5** used Flux rather than Argo CD. Argo wants 1 to 2 GiB across its
+components, and do-production has 8988 MiB of allocatable memory total, already
+carrying Mastodon, two tunnels and LibreTranslate. Flux decrypts SOPS without a
+plugin, and only two of its controllers were needed: `helm-controller` and
+`notification-controller` have nothing to manage here, so
+`--components=source-controller,kustomize-controller` brought it in at 128 MiB
+of requests against 106 MiB measured. Argo would not have fit.
 
 **Phase 6** needs `var.large_node_ips` populated first.
 `digitalocean_database_firewall` reconciles the whole rule set for a database.

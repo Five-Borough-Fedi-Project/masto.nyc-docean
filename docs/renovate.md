@@ -3,15 +3,15 @@
 Image and action updates arrive as pull requests instead of being noticed months
 late. The config is `renovate.json` at the repository root.
 
-Nothing happens until the GitHub App is installed. Until then the file is inert,
-which is the point: it can be reviewed and merged without changing anything.
+The GitHub App was installed on 2026-09-05, so this is live rather than
+pending. Because `renovate.json` already existed, there was no onboarding pull
+request to merge: Renovate reads the config and starts.
 
-## Turning it on
+## Where to look
 
-Install the Renovate app from the GitHub Marketplace and grant it this
-repository. It is free for public repositories. On the first run it opens an
-onboarding pull request describing what it found; merging that is what starts
-it.
+A Dependency Dashboard issue tracks everything pending, including updates
+deliberately held back. Read the dashboard rather than the pull request list, or
+you will only see what it decided to propose and not what it is sitting on.
 
 After that, a Dependency Dashboard issue tracks everything pending, including
 updates deliberately held back. Read the dashboard rather than the pull request

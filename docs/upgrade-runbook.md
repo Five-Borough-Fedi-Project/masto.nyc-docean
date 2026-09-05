@@ -1,8 +1,14 @@
 # Mastodon upgrade runbook
 
-Written after the v4.6.6 to v4.7.0 upgrade on 2026-08-31. Read it before you
-start. The warning about SQL clients in step 6 and the warning about `VERSION=`
-in step 8 both record failures from that night.
+Written after the v4.6.6 to v4.7.0 upgrade on 2026-08-31, revised 2026-09-05
+once Flux was reconciling both clusters. Read it before you start. The warning
+about SQL clients in step 6 and the warning about `VERSION=` in step 8 both
+record failures from that night.
+
+**Flux changes this procedure.** Both clusters reconcile `main` every ten
+minutes, and every deployment this runbook scales declares `replicas: 1` in
+git. An unsuspended Flux will scale the site back up while the database is half
+migrated. Step 6a is not optional.
 
 ## Before the window
 
@@ -53,9 +59,35 @@ in step 8 both record failures from that night.
 
 ## The window
 
+6a. **Suspend Flux on both clusters, before draining anything.**
+
+    ```sh
+    flux --context=do  suspend kustomization apps
+    flux --context=lab suspend kustomization apps
+    ```
+
+    Without this, reconciliation restores `replicas: 1` within ten minutes and
+    Rails comes up against a partially migrated schema. Confirm both report
+    suspended before continuing:
+
+    ```sh
+    flux --context=do get kustomizations && flux --context=lab get kustomizations
+    ```
+
 7. **Drain.** `./scale_for_upgrade.sh drain` scales every Mastodon deployment
    to zero, including the consolidated `mastodon-sidekiq-realtime` and
    `mastodon-sidekiq-bulk`.
+
+   **The script passes no `--context`.** It acts on whatever context is
+   current, and both clusters have a `mastodon` namespace with identically
+   named deployments. Check before running it, every time:
+
+   ```sh
+   kubectl config current-context
+   ```
+
+   It also only scales the do-production topology. `large` runs its web tier at
+   two replicas and has to be drained separately.
 
 8. **Migrate.** With the site down you can skip the pre/post split. Upstream
    recommends one pass with post-deployment migrations enabled when services
@@ -94,6 +126,13 @@ in step 8 both record failures from that night.
      k8s/clusters/large/kustomization.yaml
    ```
 
+   The image tag lives in the `images:` stanza of each cluster kustomization.
+   Change it in a branch, open a pull request, and merge. With Flux suspended
+   the merge does not deploy anything by itself, which is what you want while
+   the site is down and migrations are running.
+
+   Apply it by hand for the upgrade, since Flux is paused:
+
    ```sh
    kubectl --context=do  apply -k k8s/clusters/do-production
    kubectl --context=lab apply -k k8s/clusters/large
@@ -107,14 +146,32 @@ in step 8 both record failures from that night.
 
 ## After
 
+10a. **Resume Flux**, once the site is up and you are satisfied:
+
+     ```sh
+     flux --context=do  resume kustomization apps
+     flux --context=lab resume kustomization apps
+     ```
+
+     Then confirm it reconciles to no changes. If it wants to alter something,
+     the cluster and the merged branch disagree and the cluster is about to
+     lose:
+
+     ```sh
+     kubectl --context=do diff -k k8s/clusters/do-production
+     ```
+
 11. Un-suspend whatever you paused, such as `timeline-health-check`.
 12. Re-run the migration status check.
 13. Expect disk usage to settle above where it started. Autovacuum reclaims the
     dead tuples for reuse but does not return the space to the operating system.
-14. Check node memory. `mastodon-web` grows to about 1.1 GiB over a few days of
-    serving and pushes a node past 100%, at which point sidekiq pods get
-    OOMKilled. Restart it by deleting the pod, never with
-    `kubectl rollout restart`. See `docs/cluster-capacity.md`.
+14. Check node memory. `mastodon-web` still grows to roughly 1.1 GiB over a few
+    days of serving, but the cluster now has room for it: the sidekiq
+    consolidation and the removal of vector took do-production from a node at
+    103% to the current 71% of requests cluster-wide, and there have been no
+    OOMKills or restarts since. `kubectl rollout restart` works again, provided
+    one node has 1024 MiB free for the surge pod. See
+    `docs/cluster-capacity.md`.
 
 ## What stays manual
 

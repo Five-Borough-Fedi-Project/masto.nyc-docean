@@ -1,99 +1,113 @@
 # do-production capacity
 
-Measured 2026-09-03, two days after the v4.7.0 upgrade. Recorded because the
-numbers contradict what the node size suggests, and because two operational
-rules fall out of them.
+Measured 2026-09-05, after the sidekiq consolidation, the removal of vector, and
+the memory request work. An earlier revision of this file recorded two
+operational rules born of a cluster running above 100 percent. Both are gone.
+What replaced them is a smaller and more useful set of facts.
 
 ## The cluster has less memory than it looks like
 
-Three `s-2vcpu-4gb` nodes read as 12 GiB. DOKS reserves roughly 940 MiB per
-node for system components, so the schedulable figure is:
+This part has not changed and will not. Three `s-2vcpu-4gb` nodes read as
+12 GiB. DOKS reserves 919 MiB per node for system components:
 
 | | per node | cluster |
 |---|---|---|
 | capacity | 3915 MiB | 11745 MiB |
 | **allocatable** | **2996 MiB** | **8988 MiB** |
-| requested | 2194 to 2588 MiB | 7146 MiB (80%) |
-| free by requests | 400 to 800 MiB | 1842 MiB |
 
-Plan against 8988, not 11745. The largest single pod that can be scheduled is
-bounded by the free space on one node, around 800 MiB, not by the 1842 MiB
-cluster total.
+Plan against 8988, never 11745.
 
-## Rule 1: restart `mastodon-web` by deleting the pod
+## Where it currently sits
 
-`kubectl rollout restart deployment/mastodon-web` does not work here. The
-default strategy surges to a second pod before terminating the first, and
-`mastodon-web` requests 1024 MiB, which no node has free while the old pod
-still holds its request. The surge pod stays Pending:
+| node | requested | actual | free by request |
+|---|---|---|---|
+| worker-pool-375ja5 | 2510 MiB (83%) | 2543 MiB (84%) | 486 MiB |
+| worker-pool-375jah | 2868 MiB (95%) | 2299 MiB (76%) | 128 MiB |
+| worker-pool-375jak | 1024 MiB (34%) | 1200 MiB (40%) | 1972 MiB |
 
-```
-FailedScheduling: 0/3 nodes are available: 3 Insufficient memory.
-preemption: 0/3 nodes are available: No preemption victims found
-```
+Requests total 6402 MiB, 71 percent of allocatable.
 
-The rollout then sits there. The old pod keeps serving, so nothing breaks, but
-nothing happens either.
+Read the two columns together. `375jah` shows 95 percent requested against 76
+percent actual, and that gap is deliberate. Before 2026-09-05 four workloads
+declared no requests at all while using 655 MiB, so the scheduler's model of
+this cluster was wrong by most of a gigabyte and the requested column was
+fiction. It is now a slight overstatement instead, which is the correct
+direction to be wrong in.
 
-Delete the pod instead. The ReplicaSet schedules the replacement once the old
-one releases its request:
+The number that constrains scheduling is the largest free block on any single
+node, currently 1972 MiB on `375jak`, not the 2586 MiB cluster total.
+
+## Restarting mastodon-web
+
+`kubectl rollout restart deployment/mastodon-web` used to deadlock here. The
+default strategy surges to a second pod before terminating the first,
+`mastodon-web` requests 1024 MiB, and no node had that free while the old pod
+still held its request. The surge pod stayed Pending on
+`FailedScheduling: 3 Insufficient memory` and the rollout sat there forever.
+
+It works now, and it worked on 2026-09-05 during the priority class rollout,
+because `375jak` has 1972 MiB free. That is the whole reason, so it is also the
+thing to check before assuming it will work again:
 
 ```sh
-kubectl -n mastodon delete pod -l app.kubernetes.io/component=web
+kubectl --context=do describe nodes | grep -A5 'Allocated resources' | grep memory
 ```
 
-Two things to know when you do:
+If no node has 1024 MiB free, delete the pod rather than rolling it. The
+ReplicaSet schedules the replacement once the old one releases its request:
 
-- The readiness probe in `deployment-web.yaml` is commented out, so the pod
-  reports Ready as soon as the container starts, well before Puma accepts
-  connections. Verify from inside the cluster rather than trusting the status:
+```sh
+kubectl --context=do -n mastodon delete pod -l app.kubernetes.io/component=web
+```
 
-  ```sh
-  kubectl -n mastodon exec deploy/dbg -- curl -sf http://mastodon-web.mastodon:3000/health
-  ```
+`masto.nyc` stays up through either path because `mastodon-large` serves it. An
+external check passing tells you nothing about the state of the DO pod.
 
-- `masto.nyc` stays up during the gap because `mastodon-large` serves it. The
-  external check passing tells you nothing about the DO pod.
+## OOMKills
 
-## Rule 2: expect OOMKills every few days until this is fixed
+The earlier revision of this file said to expect them every few days. As of
+2026-09-05 there are no restarts and no terminated containers anywhere in the
+namespace, and no OOM events.
 
-`mastodon-web` grew from 301 MiB at boot to 1109 MiB over three days of serving.
-Restarting reclaimed 808 MiB and took the worst node from 103% to 73%.
+Three changes did it. Seven single-queue sidekiq deployments became three on
+2026-09-04, which stopped paying the Rails boot cost seven times and freed
+about 1.6 GiB. Vector left on 2026-09-05 with another 429 MiB of real usage
+across the three nodes. And the workloads that had been invisible to the
+scheduler started declaring what they use.
 
-While a node sits above 100%, containers get killed at their own limits.
-As of this measurement, `mastodon-sidekiq-pull` had been OOMKilled six times and
-`mastodon-sidekiq-ingress` three, both against 900 MiB limits, exit code 137.
-Those two deployments no longer exist; their queues moved into
-`mastodon-sidekiq-realtime` and `mastodon-sidekiq-bulk` on 2026-09-04.
+If pressure returns, the options in rough order of preference:
 
-Raising those limits makes it worse. The limits are already generous for those
-queues, and the pressure comes from the node being full.
-
-The first fix, applied 2026-09-04, was to stop paying the Rails boot cost seven
-times. Seven single-queue sidekiq deployments became three, which frees roughly
-1.6 GiB. Requests cannot come down: measured across the namespace they totalled
-4524 MiB against 4963 MiB of real usage, so the pods were already asking for
-less than they use. That is why nodes drift past 100%.
-
-If pressure returns after the consolidation:
-
-1. **Restart `mastodon-web` weekly.** Hides the symptom and leaves you one busy
-   week from the same problem.
+1. **Move work off do-production.** `mastodon-large` already serves the web
+   tier. If Cloudflare can be weighted to prefer it, DO's `mastodon-web` could
+   drop to zero replicas and return 1024 MiB. Both DO tunnels currently route
+   `masto.nyc` to `mastodon-nginx`, which proxies to `mastodon-web:3000` in this
+   cluster, so that pod serves whenever the edge picks a DO tunnel. Confirm the
+   Cloudflare side before relying on this.
 2. **Add a fourth node.** Costs money, which for this project is the binding
    constraint.
-3. **Move work off do-production.** `mastodon-large` already serves the web
-   tier. If Cloudflare can be weighted to prefer it, DO's `mastodon-web` could
-   drop to zero replicas and return 1024 MiB of requests.
+3. **Restart `mastodon-web` on a schedule.** Hides the symptom and leaves you
+   one busy week from the same problem.
 
-Option 3 needs confirmation on the Cloudflare side first. Both DO tunnels
-currently route `masto.nyc` to `mastodon-nginx`, which proxies to
-`mastodon-web:3000` in this cluster, so that pod serves whenever the edge picks
-a DO tunnel.
+## What is running that did not used to be
 
-## What this means for Flux
+Both additions landed on 2026-09-05 and both are small:
 
-Phase 5 of `docs/devops-roadmap.md` puts Flux in this cluster at roughly
-300 MiB. That fits in 1842 MiB of cluster headroom, but only because Flux ships
-as four small controllers rather than one pod. Do not add it while a node is
-running above 100%, or the scheduler will place it and something else will be
-killed to make room.
+| | requested | actual |
+|---|---|---|
+| metrics-server, `kube-system` | 64 MiB | 33 MiB |
+| Flux, two controllers | 128 MiB | 106 MiB |
+
+Flux runs `source-controller` and `kustomize-controller` only. A default
+bootstrap installs four; `helm-controller` and `notification-controller` have
+nothing to do here, since the repository contains no HelmRelease and no Alert,
+Provider or Receiver. Passing
+`--components=source-controller,kustomize-controller` halved the footprint. See
+`docs/flux-bootstrap.md`.
+
+## Probes
+
+An earlier revision of this file warned that `mastodon-web` had no readiness
+probe, so a pod reported Ready before Puma accepted connections. That is fixed.
+`k8s/base/mastodon-web/deployment.yaml` now sets a startupProbe of 60 failures
+at 5 second intervals, giving Puma five minutes to boot, with readiness and
+liveness probes behind it.

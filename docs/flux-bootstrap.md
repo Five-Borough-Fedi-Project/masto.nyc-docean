@@ -1,40 +1,48 @@
-# Bootstrapping Flux
+# Flux
 
-Two clusters, one repository, one path each. After this, merging to `main` is
-deploying, and the laptop stops being a required component.
+Both clusters were bootstrapped on 2026-09-05. Merging to `main` is now
+deploying, and the laptop is no longer part of the deploy path.
 
-## What Flux will manage, and what it will not
+This file records how it is wired, what went wrong during bootstrap in case it
+has to be done again, and how to work with a cluster that reverts your changes.
 
-| reconciled | left alone |
-|---|---|
-| `k8s/clusters/do-production` and its base and apps | anything Terraform creates |
-| `k8s/clusters/large` and its base | `k8s/migrate/`, one-shot upgrade Jobs |
-| `k8s/secrets/<cluster>`, decrypted with SOPS | `k8s/infrastructure/monitoring`, which targets kube-system |
+## Shape
+
+Two `Kustomization` resources per cluster, plus the `flux-system` one that
+bootstrap creates for itself:
+
+| name | path | decryption | dependsOn |
+|---|---|---|---|
+| `secrets` | `k8s/secrets/<cluster>` | SOPS | |
+| `apps` | `k8s/clusters/<cluster>` | | `secrets` |
+
+`dependsOn` is not decoration. On a cold cluster a pod that starts before its
+Secret exists lands in `CreateContainerConfigError`, and during the 2026-09-05
+bootstrap `apps` correctly refused to start while `secrets` was failing.
 
 `prune: true` removes objects that disappear from git, but only objects Flux
-itself applied. It tracks them by label, so nothing created by Terraform or by
-hand is at risk.
+itself applied, tracked by label. Terraform-managed resources and anything
+applied by hand are not at risk.
 
-`apps` declares `dependsOn: secrets`, so a cold cluster brings up Secrets before
-the workloads that read them. Without that a pod can land in
-`CreateContainerConfigError` on first boot.
+`flux/` sits outside `k8s/` because bootstrap writes its own controller
+manifests into whatever path it is given, and mixing those with the manifests
+being reconciled makes both harder to read.
 
-## Before you start
+## What Flux does not manage
 
-You need a GitHub token with `repo` scope. Flux uses it once to commit its own
-manifests and to create a deploy key; after that the cluster authenticates with
-the deploy key, not the token.
+Reconciled paths are `k8s/clusters/<cluster>` and `k8s/secrets/<cluster>`.
+Everything else is outside its view:
+
+- `k8s/infrastructure/metrics-server` and `k8s/infrastructure/monitoring` target
+  `kube-system` and are applied out of band. Worth folding in later.
+- `k8s/migrate/` holds one-shot Jobs a human runs during an upgrade.
+- Anything Terraform owns.
+
+## The commands, for the next time
 
 ```sh
 export GITHUB_TOKEN=...
-```
 
-## One cluster at a time
-
-Start with `large`. It runs two web replicas and no cronjobs, so a mistake there
-is recoverable while do-production keeps serving.
-
-```sh
 flux bootstrap github \
   --context=lab \
   --owner=Five-Borough-Fedi-Project \
@@ -45,100 +53,99 @@ flux bootstrap github \
   --personal=false
 ```
 
-`--components` matters. The default installs four controllers; we use two. See
-[Memory](#memory) below.
+`--components` matters: the default installs four controllers at 64Mi each, and
+two of them have nothing to do here. See `docs/cluster-capacity.md`.
 
-Then install the age key so Flux can decrypt. This is the one secret that never
-goes in git:
+Then the age key, which is the one secret that never goes in git:
 
 ```sh
 kubectl --context=lab -n flux-system create secret generic sops-age \
   --from-file=age.agekey=$HOME/.config/sops/age/large.txt
 ```
 
-Watch it converge:
+Repeat with `--context=do`, `--path=flux/do-production`, and
+`do-production.txt`. Each path gets its own deploy key, so the repository ends
+up with two. That is correct rather than duplication.
 
-```sh
-flux --context=lab get kustomizations --watch
+## The token needs more than you would guess
+
+The first attempt on 2026-09-05 failed here:
+
+```
+✗ POST https://api.github.com/repos/.../keys: 403 Resource not accessible by personal access token
 ```
 
-`secrets` should reconcile first, then `apps`. If `secrets` reports a decryption
-failure, the age key is wrong or missing; nothing else will proceed, which is
-the correct failure mode.
+The push had already succeeded, so the token had `Contents: write` and was
+approved for the organisation. What it lacked was **`Administration: Read and
+write`**, which is the fine-grained permission governing deploy keys. That
+wording, `Resource not accessible by personal access token`, is specific to
+fine-grained tokens; a classic token fails differently.
 
-Repeat for do-production once large is healthy:
+Two things about fixing it. Changing permissions on a fine-grained token
+**revokes its organisation approval**, so an owner has to approve it again
+before it works. And bootstrap is idempotent: rerunning the identical command
+after fixing the token picked up exactly where it stopped.
 
-```sh
-flux bootstrap github \
-  --context=do \
-  --owner=Five-Borough-Fedi-Project \
-  --repository=masto.nyc-docean \
-  --branch=main \
-  --path=flux/do-production \
-  --components=source-controller,kustomize-controller \
-  --personal=false
+`--token-auth=true` avoids needing the permission by storing the PAT in-cluster
+as basic auth instead. Avoid it. The PAT becomes a live credential in the
+cluster, and when it expires Flux stops syncing with no obvious signal. Deploy
+keys do not expire.
 
-kubectl --context=do -n flux-system create secret generic sops-age \
-  --from-file=age.agekey=$HOME/.config/sops/age/do-production.txt
-```
+## Working with a cluster that reverts you
 
-## What changes afterwards
+Drift correction is the point, and it is startling the first time it happens
+mid-debugging. Change something with `kubectl` and Flux puts it back within its
+ten minute interval.
 
-`kubectl apply` stops being how things get deployed. Edit, open a pull request,
-merge, and Flux converges within its ten minute interval. To make it converge
-now:
+To make it converge now rather than waiting:
 
 ```sh
 flux --context=do reconcile kustomization apps --with-source
 ```
 
-Drift correction becomes automatic. Change something by hand and Flux puts it
-back, which is the point, and occasionally surprising the first time it happens
-during a debugging session. To stop it temporarily:
+To stop it while you work:
 
 ```sh
 flux --context=do suspend kustomization apps
 flux --context=do resume kustomization apps
 ```
 
-## Memory
+**Suspend before a Mastodon upgrade.** The upgrade runbook scales deployments
+and runs migration Jobs, and an unsuspended Flux will undo the scaling
+mid-migration. See `docs/upgrade-runbook.md`.
 
-A default bootstrap installs four controllers, each requesting 64Mi, for 256Mi
-of reserved memory. Two of the four have nothing to do here: there is not a
-single HelmRelease in this repository, and no Alert, Provider or Receiver, so
-helm-controller and notification-controller would idle forever holding a
-reservation. Passing `--components=source-controller,kustomize-controller`
-halves the footprint to 128Mi.
+## What the first reconciliation did
 
-The 64Mi figure is a request, not consumption. kustomize-controller settles
-around 25 to 40Mi and source-controller around 50 to 80Mi depending on how
-large the repository gets. The 1Gi limits reserve nothing; they only cap.
+Worth knowing, because it looks alarming and is not.
 
-do-production has no headroom to waste. Memory requests by node, against
-roughly 3000Mi allocatable each:
+On do-production, Flux immediately rolled `libretranslate`. The cause was a
+single annotation:
 
-| node | requested | actual |
-|---|---|---|
-| worker-pool-375ja5 | 2126Mi (70%) | 2426Mi (80%) |
-| worker-pool-375jah | 2940Mi (98%) | 2881Mi (96%) |
-| worker-pool-375jak | 896Mi (29%) | 1188Mi (39%) |
-
-Only `375jak` can take the controllers, and it can take them comfortably. Check
-the numbers again before bootstrapping rather than trusting this table, because
-the node at 98 percent leaves no margin for the scheduler to work with:
-
-```sh
-kubectl --context=do describe nodes | grep -A5 'Allocated resources' | grep memory
+```
+kubectl.kubernetes.io/restartedAt: 2025-02-26T00:15:12-05:00
 ```
 
-On large this does not register. Those nodes are far bigger and sit between 6
-and 11 percent requested.
+left behind by a `kubectl rollout restart` in February 2025. It existed only in
+the cluster, never in git. Flux applies the git state, which does not have it,
+so removing it changed the pod template hash and triggered one rollout. That is
+drift correction working exactly as intended.
 
-Adding a controller later is a flag change and a re-bootstrap, so starting
-narrow costs nothing.
+It was a one-off. No other workload on either cluster carries that annotation.
+Both clusters otherwise reconciled to no changes, which is the boring result you
+want from a first bootstrap.
 
-## Rolling back
+## Checking on it
 
-`flux suspend` stops reconciliation without removing anything. To leave
-entirely, `flux uninstall` removes the controllers and leaves every workload
-running, because Flux does not own them beyond the labels it adds.
+```sh
+flux --context=do get kustomizations
+```
+
+All three should report `True` on the same revision. If `secrets` reports a
+decryption failure the age key is wrong or missing, and nothing downstream
+proceeds, which is the correct failure mode.
+
+## Leaving
+
+`flux suspend` stops reconciliation without removing anything. `flux uninstall`
+removes the controllers and leaves every workload running, because Flux does not
+own them beyond the labels it adds. Backing out is cheap.
