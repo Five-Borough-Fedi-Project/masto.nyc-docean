@@ -1,0 +1,39 @@
+# Secret scanning config. See .github/workflows/kustomize.yaml for how it runs.
+#
+# The default ruleset is kept in full and only narrowed where this repository
+# produces known false positives. Every exception below is a shape that cannot
+# carry a secret, not a decision that a particular secret is acceptable.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Shapes in this repository that cannot hold a credential"
+
+# Match against the whole matched text rather than just the extracted secret,
+# so an exception can require the surrounding shape (`key:` and nothing else on
+# the line) instead of trusting the value alone.
+regexTarget = "match"
+
+regexes = [
+  # `key: DEFAULT_S3_KEY_SECRET` under a secretKeyRef or configMapKeyRef names
+  # the key to read out of a Secret. It is a lookup, and the value it points at
+  # never appears in the manifest. Env-var-shaped names only, so an actual
+  # secret sitting on a `key:` line is still caught.
+  '''(?m)^\s*key:\s*[A-Z][A-Z0-9_]{3,}\s*$''',
+
+  # SOPS ciphertext. Encrypting a value is the outcome this scan exists to
+  # push people toward, so the encrypted form must not read as a finding.
+  '''ENC\[AES256_GCM,data:[^\]]+\]''',
+
+  # age recipients in .sops.yaml are public keys. That is what the "public" in
+  # public key means; they are useless without the private half, which is not
+  # in this repository and never will be.
+  '''age1[0-9a-z]{58}''',
+]
+
+paths = [
+  # Placeholder credentials that exist to be read by a human.
+  '''k8s/secrets/.*\.reference\.ya?ml$''',
+  '''docker/.*/README\.md$''',
+]
