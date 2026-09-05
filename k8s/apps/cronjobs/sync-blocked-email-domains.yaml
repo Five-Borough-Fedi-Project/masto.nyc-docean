@@ -10,10 +10,21 @@ metadata:
   name: sync-blocked-email-domains
 spec:
   schedule: 0 3 * * *
+  # This was the only cronjob left on the default Allow. It measured 115
+  # minutes on 2026-09-05, so a run that slows down by a factor of twelve
+  # overlaps the next night's and both write the same list.
+  concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      # 115 minutes measured, so four hours is the point past which it is stuck
+      # rather than slow. Same reasoning as postgres-backup: with Forbid and no
+      # deadline, one hung run silences every later one.
+      activeDeadlineSeconds: 14400
+      # The run on 2026-08-31 failed and retried to the default limit of six.
+      # At roughly two hours per attempt that is most of a day spent failing.
+      backoffLimit: 1
       template:
         metadata:
           name: sync-blocked-email-domains
