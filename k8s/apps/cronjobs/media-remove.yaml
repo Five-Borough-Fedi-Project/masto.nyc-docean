@@ -38,6 +38,16 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: mastodon-media-remove
+              # Measured 2026-09-05: booting Rails in this image peaks at 335Mi
+              # before the command does any work. 384 covers that; the limit is
+              # loose because tootctl walks large collections and the cost
+              # depends on how much has accumulated since the last run.
+              resources:
+                requests:
+                  memory: "384Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
               image: "ghcr.io/mastodon/mastodon:v4.7.0"
               imagePullPolicy: IfNotPresent
               command:
