@@ -28,15 +28,24 @@ password and the Spaces keys straight into a public log.
 
 | # | Phase | Blocked by | Status |
 |---|-------|-----------|--------|
-| 0 | Back up the eight `private-*` files off the laptop. Rotate the DO token and Spaces keys | | **manual, do first** |
-| 1 | Safe fixes: pin images, restrict the build workflow to main, add the migration-status check | | this branch |
-| 2 | Move credentials from ConfigMaps into Secrets | 0 | next |
-| 3 | Kustomize: shared base plus one overlay per cluster | 2 | |
-| 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | config written, needs `./scripts/encrypt-secrets.sh` |
-| 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | |
-| 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | workflow written, needs secrets |
-| 7 | Renovate for image bumps | 3 | |
+| 0 | Back up the eight `private-*` files off the laptop. Rotate the DO token and Spaces keys | | files backed up; rotation deferred to 2026-09-25 |
+| 1 | Safe fixes: pin images, restrict the build workflow to main, add the migration-status check | | done |
+| 2 | Move credentials from ConfigMaps into Secrets | 0 | done, both clusters |
+| 3 | Kustomize: shared base plus one overlay per cluster | 2 | done |
+| 4 | SOPS and age, two keys. Commit encrypted secrets, delete the `private-*` pattern | 0, 2 | encrypted and committed; plaintext `private-*` files still on disk |
+| 5 | Bootstrap Flux in both clusters, each with its own `--path` | 3, 4 | manifests written; `flux bootstrap` is manual |
+| 6 | Terraform in Actions: plan on PR, apply on merge behind an environment gate | 2, `large_node_ips` populated | done, plan clean |
+| 7 | Renovate for image bumps | 3 | not started |
 | 8 | Revisit Cilium network policies | everything above | last |
+
+Phases outside the original plan, added as they surfaced:
+
+| # | Phase | Status |
+|---|-------|--------|
+| a | Sidekiq consolidation, seven deployments to three | done, freed about 2.5GiB |
+| b | Honest memory requests for the BestEffort workloads | done |
+| c | Remove vector, rename metrics-server to its real name | done |
+| d | Secret scanning on every pull request | done |
 
 ## Notes
 
