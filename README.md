@@ -16,6 +16,54 @@ manual changes get reverted.
 Infrastructure is OpenTofu, planned on every pull request and applied on merge
 behind an approval gate.
 
+## Flux, day to day
+
+Two kubectl contexts: `do` for DigitalOcean, `lab` for the `large` cluster.
+Always pass `--context`. Both clusters have a `mastodon` namespace holding
+objects with the same names, and there is nothing in a prompt to tell you which
+one you are pointed at.
+
+Check that a cluster is reconciling. All three should report `True` on the same
+revision:
+
+```sh
+flux --context=do get kustomizations
+```
+
+Pull and apply immediately, without waiting for the ten minute interval:
+
+```sh
+flux --context=do reconcile kustomization apps --with-source
+```
+
+Stop Flux reverting you while you debug something by hand, and start it again
+afterwards:
+
+```sh
+flux --context=do suspend kustomization apps
+flux --context=do resume kustomization apps
+```
+
+**Suspend both clusters before a Mastodon upgrade.** The upgrade scales
+deployments to zero, and a running Flux will scale them back up while the
+database is half migrated. See `docs/upgrade-runbook.md`.
+
+Find out why a reconcile failed. `events` is usually enough, and `logs` reads
+the controller output without the raw JSON:
+
+```sh
+flux --context=do events --for Kustomization/apps
+flux --context=do logs --kind=Kustomization --name=apps --tail=20
+```
+
+Compare a cluster against the repository without changing anything. Silence
+means they agree:
+
+```sh
+kubectl --context=do diff -k k8s/clusters/do-production
+kubectl --context=lab diff -k k8s/clusters/large
+```
+
 ## About docs/
 
 **Everything under `docs/` is AI slop.** It was written by an LLM and no human
