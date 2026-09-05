@@ -12,6 +12,10 @@
 #      should reference the SHA tag, never :latest, so that a deploy is
 #      reproducible and can be rolled back. See
 #      k8s/apps/welcome-webhook/deployment.yaml for the pattern.
+#
+#   3. After a push, bump-manifests opens a pull request pointing the manifests
+#      at the images this run produced. Without it the rebuild is never
+#      deployed, which is what happened on 2026-09-05.
 name: Build and push Docker images to GitHub Container Registry
 
 on:
@@ -78,3 +82,140 @@ jobs:
         run: |
           docker push "$BASE:${{ github.sha }}"
           docker push "$BASE:latest"
+
+  # Closes the loop between building an image and deploying it.
+  #
+  # Before this, a merge touching docker/** rebuilt and pushed an image tagged
+  # with the new commit, and then nothing referenced it. The manifests kept
+  # pointing at whatever SHA was pinned last time, so the rebuild sat in GHCR
+  # unused until a human remembered to bump the tag. That happened on
+  # 2026-09-05: security fixes for click and idna were built and pushed while
+  # the running pod stayed on the old image.
+  #
+  # Renovate cannot do this. It is disabled for first-party images on purpose,
+  # because the new tag is a commit SHA that does not exist until the merge
+  # that produces it.
+  #
+  # It opens a pull request rather than committing to main, because Flux
+  # applies main and a bad tag would deploy itself.
+  bump-manifests:
+    needs: [find-dockerfiles, build-and-push]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Point the manifests at the images this run pushed
+        id: bump
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os, re, pathlib
+          sha = os.environ["SHA"]
+          # Every Dockerfile under docker/ is rebuilt and pushed on any change
+          # in that tree, so every first-party image carries this commit's SHA.
+          names = sorted(p.parent.name for p in pathlib.Path("docker").glob("*/Dockerfile"))
+          prefix = r"ghcr\.io/five-borough-fedi-project/masto\.nyc-docean/"
+          changed = []
+          for f in sorted(pathlib.Path("k8s").rglob("*.yaml")):
+              text = original = f.read_text()
+              for n in names:
+                  # Tag references only. A name followed by @ is digest-pinned
+                  # and is left alone.
+                  text = re.sub(rf"({prefix}{re.escape(n)}):[A-Za-z0-9._-]+",
+                                rf"\g<1>:{sha}", text)
+              if text != original:
+                  f.write_text(text)
+                  changed.append(str(f))
+          print("images built: " + ", ".join(names))
+          print("manifests changed: " + (", ".join(changed) if changed else "none"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("changed=%s\n" % ("yes" if changed else "no"))
+              out.write("files=%s\n" % " ".join(changed))
+          PY
+
+      - name: Nothing to do
+        if: steps.bump.outputs.changed == 'no'
+        run: echo "Manifests already reference this commit. No pull request needed." >> "$GITHUB_STEP_SUMMARY"
+
+      # A pull request opened with GITHUB_TOKEN does not trigger other
+      # workflows, so the usual build and scan jobs will not run on it.
+      # Validating here is what keeps that from being a hole.
+      - name: Both clusters must still build, with every image pinned
+        if: steps.bump.outputs.changed == 'yes'
+        run: |
+          set -euo pipefail
+          for cluster in do-production large; do
+            kubectl kustomize "k8s/clusters/$cluster" > "/tmp/$cluster.yaml"
+            echo "  $cluster built"
+          done
+          python3 - <<'PY'
+          import yaml, sys, re
+          bad = []
+          for cluster in ("do-production", "large"):
+              for d in yaml.safe_load_all(open("/tmp/%s.yaml" % cluster)):
+                  if not d:
+                      continue
+                  spec = d.get("spec") or {}
+                  tmpl = spec.get("template") or (spec.get("jobTemplate") or {}).get("spec", {}).get("template")
+                  if not tmpl:
+                      continue
+                  pod = tmpl.get("spec") or {}
+                  for c in (pod.get("containers") or []) + (pod.get("initContainers") or []):
+                      img = c.get("image", "")
+                      if "@sha256:" in img:
+                          continue
+                      ref = img.rsplit("/", 1)[-1]
+                      tag = ref.split(":", 1)[1] if ":" in ref else ""
+                      if not (re.fullmatch(r"v?\d+\.\d+.*", tag) or re.fullmatch(r"[0-9a-f]{40}", tag)):
+                          bad.append("%s: %s uses %r" % (cluster, d["metadata"]["name"], img))
+          if bad:
+              print("\n".join("  " + b for b in bad))
+              sys.exit(1)
+          print("  every image is pinned")
+          PY
+
+      - name: Open the pull request
+        if: steps.bump.outputs.changed == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          FILES: ${{ steps.bump.outputs.files }}
+        run: |
+          set -euo pipefail
+          short="${SHA:0:7}"
+          branch="automation/image-tags-${short}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- $FILES
+
+          printf '%s\n\n%s\n' \
+            "k8s: point first-party images at ${short}" \
+            "The images under docker/ were rebuilt and pushed by the run for ${SHA}. Without this the manifests keep referencing the previous commit and the rebuild is never deployed. Both cluster overlays were built and checked for unpinned images before this branch was pushed." \
+            > /tmp/msg
+          git commit -F /tmp/msg
+          git push -u origin "$branch"
+
+          {
+            echo "Automated. The run for \`${SHA}\` rebuilt and pushed every image under \`docker/\`, and these manifests still referenced the previous commit."
+            echo
+            echo "Merging deploys them: Flux reconciles \`main\` within ten minutes."
+            echo
+            echo "Both cluster overlays were built and checked for unpinned images before this pull request was opened, because a pull request created with \`GITHUB_TOKEN\` does not trigger the usual build and scan workflows."
+            echo
+            echo "Changed: \`${FILES}\`"
+          } > /tmp/body
+
+          if ! gh pr create --base main --head "$branch" \
+               --title "k8s: point first-party images at ${short}" \
+               --assignee "$ACTOR" --body-file /tmp/body; then
+            echo "::error::Could not open the pull request. Check Settings > Actions > 'Allow GitHub Actions to create and approve pull requests'. Branch ${branch} is pushed, so it can be opened by hand."
+            exit 1
+          fi
