@@ -30,7 +30,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: postgres-backup
-              image: eeshugerman/postgres-backup-s3:16
+              image: eeshugerman/postgres-backup-s3:16@sha256:cfcaa57732c13d0724312a2eea1ad3e385f5ed049de3c626d1ef28ecc13cdddb
               command:
                 - /bin/sh
                 - -c
