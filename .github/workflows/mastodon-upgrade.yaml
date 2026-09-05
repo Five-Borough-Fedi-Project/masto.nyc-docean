@@ -1,0 +1,144 @@
+# Opens the pull request for a Mastodon version bump.
+#
+# This automates the mechanical half of an upgrade: checking the tags exist,
+# editing both cluster overlays, proving they still build, and putting the
+# checklist somewhere you cannot avoid reading it.
+#
+# It deliberately stops there. The rest of an upgrade needs a drained site and
+# a database, and this repository has no cluster credentials in CI on purpose.
+# Merging the pull request this opens deploys the new image through Flux, so
+# merge it during the window, after the migrations have run.
+#
+# scale_for_upgrade.sh stays. It is the manual half.
+name: Mastodon upgrade PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Target version, for example v4.7.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag looks like a version and is not what we already run
+        id: check
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$VERSION' is not vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          current=$(grep -A1 'name: ghcr.io/mastodon/mastodon$' \
+            k8s/clusters/do-production/kustomization.yaml | awk '/newTag:/{print $2}')
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ "$current" = "$VERSION" ]; then
+            echo "::error::do-production already runs $VERSION"
+            exit 1
+          fi
+          echo "$current -> $VERSION"
+
+      - name: Both upstream images must exist before we edit anything
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          for repo in mastodon/mastodon mastodon/mastodon-streaming; do
+            token=$(curl -sf "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io" \
+              | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" \
+              -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+              "https://ghcr.io/v2/${repo}/manifests/${VERSION}")
+            if [ "$code" != "200" ]; then
+              echo "::error::ghcr.io/${repo}:${VERSION} returned HTTP ${code}"
+              exit 1
+            fi
+            echo "  ghcr.io/${repo}:${VERSION} exists"
+          done
+
+      - name: Bump both overlays and prove they still build
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, pathlib
+          v = os.environ["VERSION"]
+          for f in ("k8s/clusters/do-production/kustomization.yaml",
+                    "k8s/clusters/large/kustomization.yaml"):
+              p = pathlib.Path(f)
+              s = p.read_text()
+              s = re.sub(r"(name: ghcr\.io/mastodon/mastodon(?:-streaming)?\n\s+newTag: )\S+",
+                         lambda m: m.group(1) + v, s)
+              p.write_text(s)
+              print("  bumped", f)
+          PY
+          git diff --stat
+          for cluster in do-production large; do
+            kubectl kustomize "k8s/clusters/$cluster" > "/tmp/$cluster.yaml"
+          done
+          grep -h 'image: ghcr.io/mastodon' /tmp/do-production.yaml /tmp/large.yaml | sort -u
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          CURRENT: ${{ steps.check.outputs.current }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          branch="upgrade/mastodon-${VERSION}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -aqm "mastodon: ${CURRENT} to ${VERSION}"
+          git push -qu origin "$branch"
+
+          cat > /tmp/body <<EOF
+          Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
+          upstream images were confirmed present in GHCR and both overlays build.
+
+          **Do not merge outside an upgrade window.** Flux reconciles \`main\`
+          within ten minutes, so merging deploys the new image. The migrations
+          have to run first, against a drained site.
+
+          Read \`docs/upgrade-runbook.md\`. The short version:
+
+          - [ ] Read the release notes for every version between ${CURRENT} and ${VERSION}
+          - [ ] Check the migration backlog is clear (\`mastodon-migration-status\` cronjob)
+          - [ ] Check database disk headroom
+          - [ ] Let the nightly backup finish, or run one
+          - [ ] Close every SQL client, including DBeaver
+          - [ ] \`./scale_for_upgrade.sh drain do\` and \`drain lab\` (suspends Flux)
+          - [ ] Run the migrations
+          - [ ] **Merge this**
+          - [ ] \`./scale_for_upgrade.sh fill do\` and \`fill lab\` (resumes Flux)
+          - [ ] Re-run the migration status check
+          EOF
+
+          if gh pr create --base main --head "$branch" \
+               --title "mastodon: ${CURRENT} to ${VERSION}" \
+               --assignee "$ACTOR" --body-file /tmp/body; then
+            echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
+          else
+            url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+            echo "::warning::Could not open the pull request. The branch is pushed."
+            {
+              echo "### Branch pushed, pull request not opened"
+              echo
+              echo "The organisation forbids GitHub Actions from creating pull requests."
+              echo
+              echo "[Open it here](${url})"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

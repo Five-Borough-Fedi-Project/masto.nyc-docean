@@ -101,32 +101,21 @@ migrated. Step 6a is not optional.
      does not.
    - Job names are immutable. Delete the Job before you re-apply it.
 
-9. **Cut over.** Bump the image tags and apply. Your site runs the new version
-   from this point:
+9. **Cut over.** Run the **Mastodon upgrade PR** workflow from the Actions tab
+   with the target version. It confirms both upstream images exist, bumps the
+   `images:` stanza in both cluster overlays, proves they still build, and
+   opens a pull request carrying this checklist.
 
-   Bump the tag in the two `images:` stanzas, one per cluster, rather than
-   editing every manifest:
-
-   ```sh
-   sed -i 's/newTag: v4.7.0/newTag: v4.7.1/' \
-     k8s/clusters/do-production/kustomization.yaml \
-     k8s/clusters/large/kustomization.yaml
-   ```
-
-   The image tag lives in the `images:` stanza of each cluster kustomization.
-   Change it in a branch, open a pull request, and merge. With Flux suspended
-   the merge does not deploy anything by itself. That is what you want while the
-   site is down and migrations are running.
-
-   Apply it by hand for the upgrade, since Flux is paused:
+   Merge it here, in the window, with the migrations done. Flux is suspended by
+   the drain, so the merge alone deploys nothing. Apply it:
 
    ```sh
    kubectl --context=do  apply -k k8s/clusters/do-production
    kubectl --context=lab apply -k k8s/clusters/large
    ```
 
-   Check first with `kubectl --context=do diff -k k8s/clusters/do-production`,
-   which answers whether the cluster matches the repo in one command.
+   `kubectl --context=do diff -k k8s/clusters/do-production` answers whether the
+   cluster matches the repo in one command.
 
 10. **Fill.** `./scale_for_upgrade.sh fill do` and `fill lab`. This resumes
     Flux and forces a reconcile; Flux restores the replica counts from git,
