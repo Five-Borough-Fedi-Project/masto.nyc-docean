@@ -4,8 +4,14 @@ metadata:
   name: libretranslate-svc
   namespace: mastodon
 spec:
+  # This selected `app: libretranslate` until 2026-09-05, and nothing has ever
+  # carried that label. The Deployment labels its pods
+  # `app.kubernetes.io/name: libretranslate`, so the Service matched nothing and
+  # had no endpoints. Mastodon got a connection failure and returned 503, which
+  # is issue #8, and the response at the time was to comment out
+  # LIBRE_TRANSLATE_ENDPOINT rather than to look at the Service.
   selector:
-    app: libretranslate
+    app.kubernetes.io/name: libretranslate
   ports:
   - port: 5000
     targetPort: 5000
