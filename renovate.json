@@ -1,14 +1,36 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":dependencyDashboard"],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
   "timezone": "America/New_York",
-  "schedule": ["before 9am on monday"],
+  "schedule": [
+    "before 9am on monday"
+  ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "pinDigests": true,
+  "vulnerabilityAlerts": {
+    "description": "A published CVE does not wait for Monday. Security updates ignore the weekly schedule, the concurrency limits and the cooling period that everything else obeys.",
+    "enabled": true,
+    "schedule": [
+      "at any time"
+    ],
+    "labels": [
+      "security"
+    ],
+    "minimumReleaseAge": null,
+    "prPriority": 10
+  },
+  "osvVulnerabilityAlerts": true,
   "kubernetes": {
-    "managerFilePatterns": ["/^k8s/.+\\.ya?ml$/"]
+    "managerFilePatterns": [
+      "/^k8s/.+\\.ya?ml$/"
+    ]
   },
   "packageRules": [
     {
@@ -21,7 +43,9 @@
     },
     {
       "description": "Images this repository builds. The tag is the commit that produced them, so there is nothing for Renovate to look up.",
-      "matchPackageNames": ["/^ghcr\\.io/five-borough-fedi-project//"],
+      "matchPackageNames": [
+        "/^ghcr\\.io/five-borough-fedi-project//"
+      ],
       "enabled": false
     },
     {
@@ -42,13 +66,20 @@
     },
     {
       "description": "Actions and Terraform providers move on their own schedule and are cheap to review together.",
-      "matchManagers": ["github-actions", "terraform"],
+      "matchManagers": [
+        "github-actions",
+        "terraform"
+      ],
       "groupName": "ci and terraform"
     },
     {
       "description": "A major version is a reading task, not a merge task.",
-      "matchUpdateTypes": ["major"],
-      "addLabels": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "addLabels": [
+        "major"
+      ],
       "minimumReleaseAge": "7 days"
     }
   ],
@@ -56,8 +87,12 @@
     {
       "description": "TOFU_VERSION in the Terraform workflow, which setup-opentofu reads.",
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/workflows/terraform\\.yaml$/"],
-      "matchStrings": ["TOFU_VERSION:\\s*(?<currentValue>\\S+)"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/terraform\\.yaml$/"
+      ],
+      "matchStrings": [
+        "TOFU_VERSION:\\s*(?<currentValue>\\S+)"
+      ],
       "depNameTemplate": "opentofu/opentofu",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
@@ -65,8 +100,12 @@
     {
       "description": "GITLEAKS_VERSION in the secret-scan workflow. The pinned sha256 alongside it has to be updated by hand, so these arrive as a prompt to do that rather than as a merge.",
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/workflows/secret-scan\\.yaml$/"],
-      "matchStrings": ["GITLEAKS_VERSION:\\s*(?<currentValue>\\S+)"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/secret-scan\\.yaml$/"
+      ],
+      "matchStrings": [
+        "GITLEAKS_VERSION:\\s*(?<currentValue>\\S+)"
+      ],
       "depNameTemplate": "gitleaks/gitleaks",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
