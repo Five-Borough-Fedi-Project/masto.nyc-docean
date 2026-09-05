@@ -112,4 +112,4 @@ spec:
               cpu: "10m"
             limits:
               memory: "32Mi"
-          image: filefrog/k8s-hacks:pause
+          image: filefrog/k8s-hacks:pause@sha256:525f345dc4dbc41e9fe9442de1a096cbf299761c427fba048f6a67dd5e032430

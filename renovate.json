@@ -1,0 +1,75 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "timezone": "America/New_York",
+  "schedule": ["before 9am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies"],
+  "pinDigests": true,
+  "kubernetes": {
+    "managerFilePatterns": ["/^k8s/.+\\.ya?ml$/"]
+  },
+  "packageRules": [
+    {
+      "description": "Mastodon is upgraded by hand, never by a merge. A version bump needs the pre-deployment migration, the image rollout and the post-deployment migration in that order, and Flux applies whatever is on main without knowing any of that. See docs/upgrade-runbook.md.",
+      "matchPackageNames": [
+        "ghcr.io/mastodon/mastodon",
+        "ghcr.io/mastodon/mastodon-streaming"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Images this repository builds. The tag is the commit that produced them, so there is nothing for Renovate to look up.",
+      "matchPackageNames": ["/^ghcr\\.io/five-borough-fedi-project//"],
+      "enabled": false
+    },
+    {
+      "description": "Everything that runs alongside Mastodon rather than as part of it. Grouped so a quiet week is one pull request instead of six.",
+      "matchPackageNames": [
+        "cloudflare/cloudflared",
+        "nginx",
+        "docker.io/libretranslate/libretranslate",
+        "registry.k8s.io/kube-state-metrics/kube-state-metrics",
+        "registry.k8s.io/metrics-server/metrics-server",
+        "eeshugerman/postgres-backup-s3",
+        "hartmutcouk/pg-repack-docker",
+        "filefrog/k8s-hacks",
+        "nicolaka/netshoot",
+        "alpine"
+      ],
+      "groupName": "cluster images"
+    },
+    {
+      "description": "Actions and Terraform providers move on their own schedule and are cheap to review together.",
+      "matchManagers": ["github-actions", "terraform"],
+      "groupName": "ci and terraform"
+    },
+    {
+      "description": "A major version is a reading task, not a merge task.",
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["major"],
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "TOFU_VERSION in the Terraform workflow, which setup-opentofu reads.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/terraform\\.yaml$/"],
+      "matchStrings": ["TOFU_VERSION:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "opentofu/opentofu",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "description": "GITLEAKS_VERSION in the secret-scan workflow. The pinned sha256 alongside it has to be updated by hand, so these arrive as a prompt to do that rather than as a merge.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/secret-scan\\.yaml$/"],
+      "matchStrings": ["GITLEAKS_VERSION:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}

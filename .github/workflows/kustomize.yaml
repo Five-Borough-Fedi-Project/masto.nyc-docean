@@ -69,13 +69,23 @@ jobs:
       - name: No image may float on a mutable tag
         run: |
           python3 - <<'PY'
-          import yaml, sys
+          import yaml, sys, re
           bad = []
           def walk(spec, owner):
               for c in (spec.get('containers') or []) + (spec.get('initContainers') or []):
                   img = c.get('image','')
-                  if img.endswith(':latest') or ':' not in img.rsplit('/',1)[-1]:
-                      bad.append(f"{owner} uses {img!r}")
+                  ref = img.rsplit('/',1)[-1]
+                  # A digest is immutable, full stop.
+                  if '@sha256:' in img:
+                      continue
+                  tag = ref.split(':',1)[1] if ':' in ref else ''
+                  # A version tag pins if it carries at least major.minor, and a
+                  # 40 character hex tag is a commit, which is immutable too.
+                  # Anything else (`latest`, `alpine`, `pause`, a bare major
+                  # like `16`) moves under you without the manifest changing.
+                  if re.fullmatch(r'v?\d+\.\d+.*', tag) or re.fullmatch(r'[0-9a-f]{40}', tag):
+                      continue
+                  bad.append(f"{owner} uses {img!r}, which is not pinned")
           for d in yaml.safe_load_all(open('/tmp/built.yaml')):
               if not d: continue
               k = d.get('kind'); n = (d.get('metadata') or {}).get('name')
