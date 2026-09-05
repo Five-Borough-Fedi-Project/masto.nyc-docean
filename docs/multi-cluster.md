@@ -10,7 +10,9 @@
 | nginx | yes | yes, identical config |
 | cloudflared | `masto-nyc`, `masto-nyc-small` | `masto-nyc-large` |
 | cronjobs | yes | no |
-| libretranslate, welcome-webhook, vector | yes | no |
+| libretranslate, welcome-webhook | yes | no |
+| metrics-server, kube-state-metrics | yes, `kube-system`, applied out of band | metrics-server only, pre-existing |
+| Flux | `flux/do-production` | `flux/large` |
 | database path | VPC private hostnames | public hostnames, IP allowlist |
 
 Cloudflare spreads `masto.nyc` across the three tunnels, so both clusters serve

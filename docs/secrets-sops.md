@@ -72,20 +72,24 @@ sops k8s/secrets/do-production/mastodon-env-secret.sops.yaml
 Opens your editor with the values decrypted, re-encrypts on save. Never decrypt
 to a file and edit that; a stray plaintext copy is how this goes wrong.
 
-## Applying, before Flux
+## Applying
+
+Flux does this. Since 2026-09-05 its kustomize-controller decrypts during
+reconciliation, so merging an encrypted change to `main` is how a secret gets
+into a cluster.
+
+The manual path still works and is worth knowing for a cluster with Flux
+suspended:
 
 ```sh
 sops --decrypt k8s/secrets/do-production/mastodon-env-secret.sops.yaml \
   | kubectl --context=do -n mastodon apply -f -
 ```
 
-After Flux, its kustomize-controller decrypts during reconciliation and this
-step disappears.
+## How Flux decrypts
 
-## What Flux needs
-
-The private key goes into each cluster as a Secret named `sops-age`, and the
-Kustomization references it:
+The private key lives in each cluster as a Secret named `sops-age`, referenced
+by the `secrets` Kustomization:
 
 ```yaml
 decryption:
@@ -94,8 +98,12 @@ decryption:
     name: sops-age
 ```
 
-That Secret is created out of band, once per cluster, and is deliberately the
-one thing not in git.
+That Secret was created out of band, once per cluster, and is deliberately the
+one thing not in git. Recreating it is the first half of `docs/flux-bootstrap.md`.
+
+If it is missing, the `secrets` Kustomization reports
+`secrets "sops-age" not found` and `apps` refuses to proceed because it declares
+`dependsOn: secrets`. Nothing half-applies, which is the behaviour you want.
 
 ## Two secrets existed only in the cluster
 

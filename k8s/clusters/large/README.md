@@ -22,7 +22,9 @@ credentials and belongs in SOPS, which phase 4 covers.
 | tunnel secret | `tunnel-credentials-large` | `tunnel-credentials`, `tunnel-credentials-small` |
 | env sources | `mastodon-env-secret` | `mastodon-env-secret` and `mastodon-env-tf` |
 | database | public hostnames, IP allowlist | VPC private hostnames |
-| also runs | | streaming, sidekiq, cronjobs, libretranslate, welcome-webhook, vector |
+| reconciled by | Flux, `flux/large` | Flux, `flux/do-production` |
+| disruption budget | `mastodon-web`, minAvailable 1 | none, every deployment is single-replica |
+| also runs | | streaming, sidekiq, cronjobs, libretranslate, welcome-webhook |
 
 `configmap-nginx.yaml` and `serviceaccount.yaml` are byte-identical to their
 do-production counterparts. `service-web.yaml` matches. `service-nginx.yaml`

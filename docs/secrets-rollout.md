@@ -1,5 +1,11 @@
 # Rollout: ConfigMaps to Secrets
 
+> **Completed 2026-09-04.** Both clusters hold their credentials in Secrets and
+> no ConfigMap on either cluster carries one. The `kubectl apply` steps below
+> are kept as a record of how it was done and as a reference if a single object
+> has to be reapplied by hand. Day to day, Flux applies these from
+> `k8s/secrets/<cluster>`; see `docs/secrets-sops.md`.
+
 Every credential in both clusters lived in a ConfigMap. This change moves the
 four that carry credentials into Secrets. It rolls out in stages so that no pod
 ever points at an object you have deleted.
@@ -130,7 +136,7 @@ Then, against the large cluster:
 
 ```sh
 kubectl apply -f <the converted file>
-kubectl apply -f k8s/k8s/clusters/large/patch-web.yaml
+kubectl apply -f k8s/clusters/large/patch-web.yaml
 kubectl -n mastodon rollout status deployment/mastodon-web
 ```
 

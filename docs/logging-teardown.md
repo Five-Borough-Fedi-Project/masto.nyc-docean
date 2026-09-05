@@ -1,115 +1,93 @@
 # Removing vector, and giving metrics-server its real name
 
-The BetterStack log source was deleted on 2026-09-05, so vector has been
-shipping into a sink that answers 401 and dropping every event. This removes it
-and keeps the one useful thing that arrived alongside it.
+Done 2026-09-05. Log shipping is off, nothing collects pod logs, and
+metrics-server now runs under its ordinary name in `kube-system`. This records
+what was removed and why, because the trap in the middle of it is worth not
+rediscovering.
 
-## What was actually installed
+## The trap
 
 One Helm release, `betterstack-logs`, contained two unrelated things:
 
-- **vector**, a DaemonSet shipping pod logs to BetterStack. Now pointed at a
-  deleted source. Three replicas using about 143Mi each, so roughly 5 percent
-  of do-production's memory.
-- **metrics-server**, the `metrics.k8s.io` API that answers `kubectl top`. It is
-  ordinary upstream metrics-server and has nothing to do with BetterStack, but
-  it inherited the chart's name and namespace, so it has been running as
+- **vector**, a DaemonSet shipping pod logs to BetterStack. Three replicas at
+  roughly 143 MiB each, about 5 percent of do-production's memory.
+- **metrics-server**, the `metrics.k8s.io` API behind `kubectl top`. Ordinary
+  upstream software with nothing to do with BetterStack, but it inherited the
+  chart's name and namespace and had been running as
   `mastodon/betterstack-logs-metrics-server` since the cluster was built.
 
-The second one is the trap. Uninstalling the release to be rid of vector takes
-`kubectl top` with it, and the name gives no hint of that.
+Uninstalling the release to be rid of vector would have taken `kubectl top` with
+it, and the name gives no hint of that. DigitalOcean does not ship
+metrics-server on DOKS, so there was nothing underneath to fall back to. The
+APIService had pointed at that pod for two years.
 
-## The plan
+## What triggered it
 
-Replace the release with upstream metrics-server under its ordinary name, then
-delete what is left. The large cluster has always run
-`kube-system/metrics-server`, so this makes do-production match rather than
-inventing a new arrangement.
+The BetterStack log source was deleted, which invalidated the token. Vector
+began answering 401 and dropping every event. It classifies 401 as not
+retriable, so it dropped rather than buffered, and memory stayed flat.
 
-The args in `k8s/infrastructure/metrics-server/deployment.yaml` are upstream
-v0.8.0 defaults, and they are character for character what has been running on
-do-production. The only edit is the memory request, dropped from 200Mi to 64Mi
-against 33Mi measured, with a 192Mi limit added.
+The deletion was itself a response to something worse: two BetterStack source
+tokens had been committed to this public repository in
+`k8s/apps/vector/values.yaml` and `configmap-vector.yaml`, swept in by a
+`git add -A` during the 2026-09-04 restructure. Deleting the source was the
+rotation. A later check confirmed no other log sources exist in the BetterStack
+account, so the second token's source is gone too and both are dead.
 
-## Cutover
+## What replaced it
 
-Apply the new one first. Both run side by side for a moment; only the APIService
-decides which answers.
+`k8s/infrastructure/metrics-server` holds upstream v0.8.0. The arguments are
+character for character what the old one ran, so this was a rename and a
+relocation rather than a reconfiguration. The only change is the memory request,
+dropped from 200 MiB to 64 MiB against 33 MiB measured, with a 192 MiB limit
+added.
 
-```sh
-kubectl --context=do apply -k k8s/infrastructure/metrics-server
-kubectl --context=do -n kube-system rollout status deploy/metrics-server
-```
+`large` had always run `kube-system/metrics-server` under the ordinary name, so
+this made do-production match rather than inventing a third arrangement.
 
-Expect `kubectl top` to fail for something under a minute while the new pod
-becomes ready, because the APIService is repointed by the same apply. Nothing
-depends on it: neither cluster runs a HorizontalPodAutoscaler, so the only
-consumer is a human at a terminal.
-
-Confirm before removing anything:
+The cutover applied the new deployment first and confirmed the APIService had
+moved before anything was deleted:
 
 ```sh
 kubectl --context=do top nodes
 kubectl --context=do get apiservice v1beta1.metrics.k8s.io
 ```
 
-The APIService should report `True` and point at `kube-system/metrics-server`.
+`kubectl top` was unavailable for under a minute. Neither cluster runs a
+HorizontalPodAutoscaler, so a human at a terminal was the only consumer.
 
-## Teardown
+## What was deleted
 
-Only once the above is green.
+Nine namespaced objects: the vector DaemonSet, the old metrics-server
+Deployment, two Services, two ConfigMaps, one Secret and two ServiceAccounts.
 
-```sh
-kubectl --context=do -n mastodon delete \
-  daemonset/betterstack-logs-vector \
-  deployment/betterstack-logs-metrics-server \
-  service/betterstack-logs-metrics-server \
-  service/betterstack-logs-vector-headless \
-  configmap/betterstack-logs-vector \
-  configmap/vector-yaml \
-  secret/vector-service-account \
-  serviceaccount/betterstack-logs-metrics-server \
-  serviceaccount/betterstack-logs-vector
-```
+Then four ClusterRoles, four ClusterRoleBindings and one RoleBinding in
+`kube-system`. All nine carried `meta.helm.sh/release-name: betterstack-logs`
+and no DigitalOcean marker, and every binding pointed at a ServiceAccount that
+had already been deleted, so they were dangling rather than merely unused.
 
-```sh
-kubectl --context=do delete \
-  clusterrole/betterstack-logs-vector \
-  clusterrole/system:betterstack-logs-metrics-server \
-  clusterrole/system:metrics-server-aggregated-reader \
-  clusterrole/vector-metrics \
-  clusterrolebinding/betterstack-logs-metrics-server:system:auth-delegator \
-  clusterrolebinding/betterstack-logs-vector \
-  clusterrolebinding/system:betterstack-logs-metrics-server \
-  clusterrolebinding/vector-metrics \
-  -n kube-system rolebinding/betterstack-logs-metrics-server-auth-reader
-```
+`configmap/vector-yaml` went with them: a two year old orphan mounted by
+nothing and unrelated to the running config.
 
-Do not delete `apiservice/v1beta1.metrics.k8s.io`. The new manifests own it now.
+Last, ten `sh.helm.release.v1.betterstack-logs.*` secrets. Those hold rendered
+copies of the chart, which meant ten more copies of the leaked token sitting in
+etcd.
 
-`configmap/vector-yaml` is in that list because it is a two year old orphan
-mounted by nothing. It is unrelated to the running config.
+`apiservice/v1beta1.metrics.k8s.io` was deliberately **not** deleted. It appears
+in the old release's inventory and looks like teardown, but the new manifests
+own it now.
 
-Last, the Helm bookkeeping. Ten release secrets hold rendered copies of the
-chart, which means ten more copies of the old source token sitting in etcd:
+## Recovered
 
-```sh
-kubectl --context=do -n mastodon delete secret -l owner=helm,name=betterstack-logs
-```
-
-## What this frees
-
-About 429Mi of actual memory across the three nodes from vector, and 136Mi of
-reserved-but-unused request from metrics-server. The reservation is the number
-that matters for scheduling, and `worker-pool-375jah` is the node that needed
-it.
+About 429 MiB of actual memory across the three nodes from vector, and 136 MiB
+of reserved-but-unused request from metrics-server.
 
 ## Left behind on purpose
 
 `kube-state-metrics` in `k8s/infrastructure/monitoring` stays. Vector was its
-only consumer, so it is now producing metrics nobody reads, but it costs little
-and it is what a future log or metrics pipeline will scrape. Removing it would
-only have to be undone.
+only consumer, so it now produces metrics nobody reads, but it costs little and
+it is what a future pipeline will scrape. Removing it would only have to be
+undone.
 
 ## When logging comes back
 
@@ -117,6 +95,12 @@ The token does not go back into a values file. Vector interpolates `${VAR}` in
 its config, so the shape is a SOPS-encrypted Secret in
 `k8s/secrets/do-production/`, pulled in with `envFrom`, and the config carrying
 `token: "${BETTERSTACK_SOURCE_TOKEN}"`. That matches how every other credential
-in this repository is handled. The previous arrangement put the token in
-`k8s/apps/vector/values.yaml`, which is how it ended up committed to a public
-repository.
+in this repository is handled.
+
+The previous arrangement put the token in `k8s/apps/vector/values.yaml`, which
+is how it reached a public repository. A gitleaks scan now runs on every pull
+request; see `.github/workflows/secret-scan.yaml`.
+
+Worth deciding deliberately rather than by default: vector cost about 5 percent
+of cluster memory to ship logs nobody was reading. Whatever replaces it should
+earn that.
