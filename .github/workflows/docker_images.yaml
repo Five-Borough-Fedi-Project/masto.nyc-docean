@@ -1,4 +1,4 @@
-# Builds the three first-party images under docker/ and pushes them to GHCR.
+# Builds the first-party images under docker/ and pushes them to GHCR.
 #
 # Two deliberate constraints:
 #
@@ -10,8 +10,8 @@
 #
 #   2. Every push is tagged with the commit SHA as well as :latest. Manifests
 #      should reference the SHA tag, never :latest, so that a deploy is
-#      reproducible and can be rolled back. See kubernetes/dependencies/
-#      webhook-welcome.yaml for the pattern.
+#      reproducible and can be rolled back. See
+#      k8s/apps/welcome-webhook/deployment.yaml for the pattern.
 name: Build and push Docker images to GitHub Container Registry
 
 on:
