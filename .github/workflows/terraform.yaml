@@ -13,8 +13,12 @@
 # diffs, so a future resource that is not sensitivity-marked cannot leak
 # through this path by accident.
 #
-# There is no state locking on the Spaces backend. The concurrency group below
-# is what prevents two runs writing state at once.
+# There is no state locking on the Spaces backend, so the apply job carries a
+# concurrency group. It is scoped to that job on purpose. When the group sat at
+# the workflow level, an apply parked at the environment gate held the lock
+# indefinitely: the next apply queued behind it and pull request plans were
+# cancelled, because only one run can wait in a group. Plan writes no state and
+# needs no lock.
 name: OpenTofu
 
 on:
@@ -29,10 +33,6 @@ on:
       - '**.tf'
       - '.terraform.lock.hcl'
       - '.github/workflows/terraform.yaml'
-
-concurrency:
-  group: opentofu-state
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -139,6 +139,9 @@ jobs:
     # Create this environment in repository settings with required reviewers.
     # Without it, a merge applies to production infrastructure unattended.
     environment: production
+    concurrency:
+      group: opentofu-apply
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: opentofu/setup-opentofu@v1
