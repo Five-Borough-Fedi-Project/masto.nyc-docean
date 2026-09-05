@@ -14,13 +14,18 @@ Roll it on a quiet evening. Do not combine it with a Mastodon upgrade.
 | `mastodon-env-tf` | ConfigMap | Secret | Terraform |
 | `mastodon-env-secret` | ConfigMap | Secret | your private file |
 | `storage-backup` | ConfigMap | Secret | your private file |
-| `mastodon-haproxy-env-tf` | ConfigMap | unchanged | Terraform |
 | `postgres-completion` | ConfigMap | unchanged | your private file |
 | `timeline-health-config` | ConfigMap | unchanged | your private file |
 
 54 references across 19 manifests move from `configMapRef` to `secretRef` and
 from `configMapKeyRef` to `secretKeyRef`. Kubernetes treats `envFrom` the same
 either way, so no application configuration changes.
+
+A seventh object, `mastodon-haproxy-env-tf`, used to sit in that table as
+unchanged. It was deleted on 2026-09-05: it held `REDIS_HOST` and `REDIS_PORT`,
+was created during an haproxy setup that no longer exists, and was referenced by
+nothing on either cluster. The same host and port are still carried by
+`REDIS_URL` in `mastodon-env-tf`.
 
 ## Step 1: create the Secrets, leave the ConfigMaps
 
