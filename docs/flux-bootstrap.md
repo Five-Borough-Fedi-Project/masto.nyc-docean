@@ -65,7 +65,7 @@ kubectl --context=lab -n flux-system create secret generic sops-age \
 
 Repeat with `--context=do`, `--path=flux/do-production`, and
 `do-production.txt`. Each path gets its own deploy key, so the repository ends
-up with two. That is correct rather than duplication.
+up with two. Both are required.
 
 ## The token needs more than you would guess
 
@@ -97,7 +97,7 @@ Drift correction is the point, and it is startling the first time it happens
 mid-debugging. Change something with `kubectl` and Flux puts it back within its
 ten minute interval.
 
-To make it converge now rather than waiting:
+To trigger a reconcile immediately:
 
 ```sh
 flux --context=do reconcile kustomization apps --with-source
@@ -126,8 +126,8 @@ kubectl.kubernetes.io/restartedAt: 2025-02-26T00:15:12-05:00
 ```
 
 left behind by a `kubectl rollout restart` in February 2025. It existed only in
-the cluster, never in git. Flux applies the git state, which does not have it,
-so removing it changed the pod template hash and triggered one rollout. That is
+the cluster. Git never had it, Flux applies the git state, and removing the
+annotation changed the pod template hash, which triggered one rollout. That is
 drift correction working exactly as intended.
 
 It was a one-off. No other workload on either cluster carries that annotation.

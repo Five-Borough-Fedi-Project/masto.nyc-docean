@@ -110,8 +110,8 @@ tofu apply
 ```
 
 The two private ConfigMaps are gone already. Converting each file in place and
-re-applying it created a Secret beside the ConfigMap rather than replacing it,
-so clear the leftovers yourself:
+re-applying it created a Secret beside the ConfigMap and left the ConfigMap
+where it was, so clear the leftovers yourself:
 
 ```sh
 kubectl -n mastodon delete configmap mastodon-env-secret storage-backup

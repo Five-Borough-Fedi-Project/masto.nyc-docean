@@ -25,7 +25,7 @@ APIService had pointed at that pod for two years.
 
 The BetterStack log source was deleted, which invalidated the token. Vector
 began answering 401 and dropping every event. It classifies 401 as not
-retriable, so it dropped rather than buffered, and memory stayed flat.
+retriable, so the events were discarded on the spot and memory stayed flat.
 
 The deletion was itself a response to something worse: two BetterStack source
 tokens had been committed to this public repository in
@@ -38,12 +38,12 @@ account, so the second token's source is gone too and both are dead.
 
 `k8s/infrastructure/metrics-server` holds upstream v0.8.0. The arguments are
 character for character what the old one ran, so this was a rename and a
-relocation rather than a reconfiguration. The only change is the memory request,
+relocation. The only change is the memory request,
 dropped from 200 MiB to 64 MiB against 33 MiB measured, with a 192 MiB limit
 added.
 
 `large` had always run `kube-system/metrics-server` under the ordinary name, so
-this made do-production match rather than inventing a third arrangement.
+this brought do-production into line with it.
 
 The cutover applied the new deployment first and confirmed the APIService had
 moved before anything was deleted:
@@ -64,7 +64,7 @@ Deployment, two Services, two ConfigMaps, one Secret and two ServiceAccounts.
 Then four ClusterRoles, four ClusterRoleBindings and one RoleBinding in
 `kube-system`. All nine carried `meta.helm.sh/release-name: betterstack-logs`
 and no DigitalOcean marker, and every binding pointed at a ServiceAccount that
-had already been deleted, so they were dangling rather than merely unused.
+had already been deleted, so every one of them was a dangling reference.
 
 `configmap/vector-yaml` went with them: a two year old orphan mounted by
 nothing and unrelated to the running config.
@@ -101,6 +101,6 @@ The previous arrangement put the token in `k8s/apps/vector/values.yaml`, which
 is how it reached a public repository. A gitleaks scan now runs on every pull
 request; see `.github/workflows/secret-scan.yaml`.
 
-Worth deciding deliberately rather than by default: vector cost about 5 percent
+Worth deciding deliberately: vector cost about 5 percent
 of cluster memory to ship logs nobody was reading. Whatever replaces it should
 earn that.

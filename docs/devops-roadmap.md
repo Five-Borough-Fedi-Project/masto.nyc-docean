@@ -91,7 +91,7 @@ with `CreateContainerConfigError`.
    deployments.
 3. Remove the ConfigMap resources.
 
-**Phase 5** used Flux rather than Argo CD. Argo wants 1 to 2 GiB across its
+**Phase 5** used Flux. Argo CD wants 1 to 2 GiB across its
 components, and do-production has 8988 MiB of allocatable memory total, already
 carrying Mastodon, two tunnels and LibreTranslate. Flux decrypts SOPS without a
 plugin, and only two of its controllers were needed: `helm-controller` and
@@ -123,12 +123,12 @@ State has drifted from reality, and a bare `tofu apply` against drifted state is
 how you lose a database. `docs/terraform-reconciliation.md` covers closing that
 gap resource by resource without changing anything in the cloud, using
 `-refresh-only` and `-target`. The five irreplaceable resources now carry
-`prevent_destroy`, so a plan that would destroy them fails rather than running.
+`prevent_destroy`, so a plan that would destroy them fails.
 
 **Phase 8** is deliberately last. `k8s/security/web-ext.yaml (removed)` held a
 CiliumNetworkPolicy restricting cloudflared egress to an FQDN allowlist. It was
 never applied, so the restriction it described was never in force, and it was
-removed on 2026-09-04 rather than left in the repo asserting something untrue.
+removed on 2026-09-04, since leaving it would have asserted something untrue.
 Cilium did not work out on an earlier attempt.
 
 Worth returning to once the rest is done, because the egress posture it aimed

@@ -128,8 +128,8 @@ migrated. Step 6a is not optional.
 
    The image tag lives in the `images:` stanza of each cluster kustomization.
    Change it in a branch, open a pull request, and merge. With Flux suspended
-   the merge does not deploy anything by itself, which is what you want while
-   the site is down and migrations are running.
+   the merge does not deploy anything by itself. That is what you want while the
+   site is down and migrations are running.
 
    Apply it by hand for the upgrade, since Flux is paused:
 
@@ -176,4 +176,4 @@ migrated. Step 6a is not optional.
 ## What stays manual
 
 Database migrations stay human-triggered. The v4.7.0 run hit a deadlock, and
-the fix was to find the other lock holder, not to retry.
+the fix was to find the other lock holder. Retrying would have deadlocked again.
