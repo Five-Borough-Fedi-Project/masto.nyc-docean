@@ -14,6 +14,15 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      # Measured 2026-09-05: the nightly dump of a 43GB database took 49.7
+      # minutes. Four hours is the point past which it is stuck rather than
+      # slow. Without a deadline a hung backup runs forever, and because
+      # concurrencyPolicy is Forbid, every later night is skipped: backups stop
+      # and nothing says so.
+      activeDeadlineSeconds: 14400
+      # One attempt, not the default six. Retrying a fifty minute dump six
+      # times is five hours of a failure nobody is watching.
+      backoffLimit: 1
       template:
         metadata:
           name: postgres-backup
