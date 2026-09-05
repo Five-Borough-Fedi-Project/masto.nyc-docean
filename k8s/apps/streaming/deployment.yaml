@@ -62,6 +62,14 @@ spec:
             httpGet:
               path: /api/v1/streaming/health
               port: streaming
+          # Values from the upstream chart, templates/deployment-streaming.yaml.
+          startupProbe:
+            httpGet:
+              path: /api/v1/streaming/health
+              port: streaming
+            initialDelaySeconds: 5
+            failureThreshold: 15
+            periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /api/v1/streaming/health

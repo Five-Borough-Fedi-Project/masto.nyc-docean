@@ -29,6 +29,22 @@ spec:
             memory: "768Mi"
         ports:
         - containerPort: 5000
+        # Measured 2026-09-05: a cold request took over 10 seconds and under 30,
+        # because models load on first use. 40 failures at 15 seconds allows ten
+        # minutes before the pod is called failed, and readiness keeps it out of
+        # the Service until it can actually answer.
+        startupProbe:
+          httpGet:
+            path: /languages
+            port: 5000
+          failureThreshold: 40
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /languages
+            port: 5000
+          periodSeconds: 30
+          timeoutSeconds: 10
         env:
         - name: "LT_HOST"
           value: "0.0.0.0"
