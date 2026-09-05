@@ -67,10 +67,15 @@ jobs:
 
       - name: Plan
         id: plan
+        shell: bash
         run: |
           set +e
-          tofu plan -input=false -no-color -out=tfplan > plan.txt 2>&1
-          rc=$?
+          # tee, not redirect: the attribute diffs belong in the job log where
+          # they can be read when a plan surprises you. Verified safe on
+          # 2026-09-04: sensitive attributes render as "(sensitive value)" and
+          # the mastodon-large address never appears.
+          tofu plan -input=false -no-color -out=tfplan 2>&1 | tee plan.txt
+          rc=${PIPESTATUS[0]}
           set -e
           # Resource-level actions only. Attribute diffs stay in the job log.
           grep -E '^\s+# \S+ (will|must)' plan.txt | sed 's/^ *//' > actions.txt || true
