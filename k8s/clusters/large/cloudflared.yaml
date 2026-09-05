@@ -18,6 +18,7 @@ spec:
         app: cloudflared-large
         security: web-ext
     spec:
+      priorityClassName: masto-critical
       # https://github.com/cloudflare/cloudflared/issues/1109#issuecomment-2234239403
       securityContext:
         runAsGroup: 65532
