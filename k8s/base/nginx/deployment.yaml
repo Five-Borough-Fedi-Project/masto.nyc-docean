@@ -18,6 +18,17 @@ spec:
             name: masto-nginx-config-prd
       containers:
         - name: mastodon-nginx
+          # Sized from measurement, 2026-09-05: 2Mi idle on do-production,
+          # 129Mi on large where it serves real traffic and fills proxy_cache.
+          # Without a request this pod is BestEffort, which makes the proxy
+          # carrying every inbound request the first thing the kubelet evicts
+          # under node pressure.
+          resources:
+            requests:
+              memory: "192Mi"
+              cpu: "50m"
+            limits:
+              memory: "384Mi"
           image: nginx:1.30.3-alpine3.23-slim
           ports:
           - containerPort: 80

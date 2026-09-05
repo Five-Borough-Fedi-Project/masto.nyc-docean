@@ -28,6 +28,15 @@ spec:
           value: "0           200000000"
       containers:
       - name: cloudflared-small
+        # 29-41Mi measured 2026-09-05. A request moves this out of BestEffort:
+        # the tunnel is the only path inbound traffic has, so it should not be
+        # first in the eviction queue.
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
         image: cloudflare/cloudflared:2026.5.0
         args:
         - tunnel
@@ -97,4 +106,10 @@ spec:
             privileged: true
       containers:
         - name: sleep
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "32Mi"
           image: filefrog/k8s-hacks:pause
