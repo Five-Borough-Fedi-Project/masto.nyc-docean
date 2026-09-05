@@ -33,11 +33,9 @@ changed.
 Five of these eight files are the same file maintained twice, which is the
 argument for a shared base.
 
-## Known inconsistency
+## Resolved
 
-The nginx Deployment here mounts no volume. do-production mounts an `emptyDir`
-at `/tmp/page-replica`. Both clusters run the same nginx config, which sends
-crawler traffic to a local listener rooted at `/tmp/page-replica/masto.nyc`. On
-do-production that directory exists and holds nothing; here it does not exist.
-Both return 404, since the `page-replica` sidecar that would fill it stays
-commented out. The clusters agree by coincidence. Worth resolving either way.
+This file previously recorded a `page-replica` crawler split as an open
+inconsistency between the clusters. It is gone: neither nginx config routes to
+it, neither Deployment mounts the `emptyDir` it needed, and crawlers get the
+same 200 as everyone else. The sidecar meant to serve it never ran.

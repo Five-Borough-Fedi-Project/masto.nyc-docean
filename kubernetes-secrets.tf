@@ -64,21 +64,6 @@ resource "kubernetes_secret_v1" "mastodon_env_tf" {
 }
 
 
-### Not a credential -- a hostname and a port -- so this stays a ConfigMap.
-### Note nothing in kubernetes/ currently references it; it appears to be
-### vestigial from the haproxy setup. Left in place rather than destroyed.
-resource "kubernetes_config_map_v1" "mastodon_env_ha_tf" {
-  metadata {
-    name = "mastodon-haproxy-env-tf"
-    namespace = var.masto_ns
-  }
-
-  data = {
-    "REDIS_HOST" = digitalocean_database_cluster.mastodon_redis.private_host
-    "REDIS_PORT" = digitalocean_database_cluster.mastodon_redis.port
-  }
-}
-
 moved {
   from = kubernetes_config_map.mastodon_direct_db
   to   = kubernetes_config_map_v1.mastodon_direct_db
@@ -87,9 +72,4 @@ moved {
 moved {
   from = kubernetes_config_map.mastodon_env_tf
   to   = kubernetes_config_map_v1.mastodon_env_tf
-}
-
-moved {
-  from = kubernetes_config_map.mastodon_env_ha_tf
-  to   = kubernetes_config_map_v1.mastodon_env_ha_tf
 }

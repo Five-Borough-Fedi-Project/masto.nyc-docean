@@ -121,13 +121,12 @@ Confirmed against the live manifests. `masto-nyc-large` routes `masto.nyc` to
 `configmap-nginx.yaml` is byte-identical on both clusters. Caching and the
 crawler split behave the same whichever tunnel Cloudflare picks.
 
-One inconsistency remains. On do-production the nginx Deployment mounts an
-`emptyDir` at `/tmp/page-replica`. On `large` it mounts nothing. The shared
-nginx config routes crawler traffic to a listener rooted at
-`/tmp/page-replica/masto.nyc`, so do-production serves from an empty directory
-and `large` from a directory that does not exist. Both return 404, because the
-`page-replica` sidecar that would fill it stays commented out. The two clusters
-agree by coincidence. Fix it in one direction or the other.
+The crawler split described in earlier revisions of this document is gone. It
+routed crawler traffic to a listener rooted at `/tmp/page-replica/masto.nyc`,
+which do-production served from an empty directory and `large` from a directory
+that did not exist, so both returned 404 and then failed to find a `500.html`
+to say so with. The sidecar meant to fill it never ran. Crawlers now get the
+same 200 as everyone else from both clusters.
 
 ## Where the environment lives
 
