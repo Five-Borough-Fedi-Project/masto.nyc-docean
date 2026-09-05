@@ -13,6 +13,9 @@
   "labels": [
     "dependencies"
   ],
+  "assignees": [
+    "seano-vs"
+  ],
   "pinDigests": true,
   "vulnerabilityAlerts": {
     "description": "A published CVE does not wait for Monday. Security updates ignore the weekly schedule, the concurrency limits and the cooling period that everything else obeys.",
