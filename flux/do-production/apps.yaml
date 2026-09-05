@@ -1,0 +1,24 @@
+# The workloads. dependsOn secrets so a rollout cannot begin before the Secrets
+# it reads are present; without it a pod can land in
+# CreateContainerConfigError on a cold cluster.
+#
+# prune removes objects that disappear from git. It only touches objects Flux
+# itself applied, tracked by label, so anything created by Terraform or by hand
+# is left alone.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 2m
+  timeout: 5m
+  path: ./k8s/clusters/do-production
+  prune: true
+  wait: false
+  dependsOn:
+    - name: secrets
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
