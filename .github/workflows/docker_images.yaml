@@ -24,10 +24,12 @@ on:
       - main
     paths:
       - 'docker/*/**'
+      - '!docker/*/**.md'
       - '.github/workflows/docker_images.yaml'
   pull_request:
     paths:
       - 'docker/*/**'
+      - '!docker/*/**.md'
       - '.github/workflows/docker_images.yaml'
 
 permissions:
@@ -87,6 +89,7 @@ jobs:
           # images changed", which is a perfectly ordinary answer here.
           content_dirs=$(echo "$changed" \
             | grep -E '^docker/[^/]+/' \
+            | grep -vE '\.md$' \
             | cut -d/ -f1,2 \
             | sort -u \
             | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done || true)
