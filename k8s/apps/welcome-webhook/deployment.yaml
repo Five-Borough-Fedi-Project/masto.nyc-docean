@@ -15,7 +15,7 @@ spec:
       containers:
       - name: welcome-webhook
         # TODO: can the image be terraform-ed or put somewhere else, like github?
-        image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/welcome-bot:d0578001e86c45a75cd25bb9d258c68fdb195629
+        image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/welcome-bot:9667390b655199af2ff3bd5e8840328a8e9413a7
         imagePullPolicy: IfNotPresent
         # Sized from measurement, 2026-09-05: 41Mi and 3m on do-production.
         resources:
