@@ -19,7 +19,7 @@ This container is designed to run as a Kubernetes CronJob to monitor the health 
 ```bash
 python -m app.health_check \
   --hostname masto.nyc \
-  --freshness 1800 \
+  --freshness 300 \
   --sample-size 20 \
   --heartbeat-url https://uptime.betterstack.com/api/v1/heartbeat/xxx
 ```
@@ -44,7 +44,7 @@ docker build -t timeline-health .
 # Run with environment variables
 docker run \
   -e MASTODON_HOSTNAME=masto.nyc \
-  -e FRESHNESS_THRESHOLD=1800 \
+  -e FRESHNESS_THRESHOLD=300 \
   -e SAMPLE_SIZE=20 \
   -e HEARTBEAT_URL=https://uptime.betterstack.com/api/v1/heartbeat/xxx \
   timeline-health
@@ -52,7 +52,7 @@ docker run \
 # Run with command line arguments
 docker run timeline-health \
   --hostname masto.nyc \
-  --freshness 1800 \
+  --freshness 300 \
   --sample-size 20 \
   --heartbeat-url https://uptime.betterstack.com/api/v1/heartbeat/xxx
 ```
