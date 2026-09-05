@@ -41,8 +41,12 @@ flux bootstrap github \
   --repository=masto.nyc-docean \
   --branch=main \
   --path=flux/large \
+  --components=source-controller,kustomize-controller \
   --personal=false
 ```
+
+`--components` matters. The default installs four controllers; we use two. See
+[Memory](#memory) below.
 
 Then install the age key so Flux can decrypt. This is the one secret that never
 goes in git:
@@ -71,6 +75,7 @@ flux bootstrap github \
   --repository=masto.nyc-docean \
   --branch=main \
   --path=flux/do-production \
+  --components=source-controller,kustomize-controller \
   --personal=false
 
 kubectl --context=do -n flux-system create secret generic sops-age \
@@ -98,13 +103,39 @@ flux --context=do resume kustomization apps
 
 ## Memory
 
-Flux's four controllers need roughly 300MiB. do-production sits near 68 percent
-of allocatable after the sidekiq consolidation freed about 2.5GiB, so there is
-room. Check before bootstrapping rather than after:
+A default bootstrap installs four controllers, each requesting 64Mi, for 256Mi
+of reserved memory. Two of the four have nothing to do here: there is not a
+single HelmRelease in this repository, and no Alert, Provider or Receiver, so
+helm-controller and notification-controller would idle forever holding a
+reservation. Passing `--components=source-controller,kustomize-controller`
+halves the footprint to 128Mi.
+
+The 64Mi figure is a request, not consumption. kustomize-controller settles
+around 25 to 40Mi and source-controller around 50 to 80Mi depending on how
+large the repository gets. The 1Gi limits reserve nothing; they only cap.
+
+do-production has no headroom to waste. Memory requests by node, against
+roughly 3000Mi allocatable each:
+
+| node | requested | actual |
+|---|---|---|
+| worker-pool-375ja5 | 2126Mi (70%) | 2426Mi (80%) |
+| worker-pool-375jah | 2940Mi (98%) | 2881Mi (96%) |
+| worker-pool-375jak | 896Mi (29%) | 1188Mi (39%) |
+
+Only `375jak` can take the controllers, and it can take them comfortably. Check
+the numbers again before bootstrapping rather than trusting this table, because
+the node at 98 percent leaves no margin for the scheduler to work with:
 
 ```sh
-kubectl --context=do top nodes
+kubectl --context=do describe nodes | grep -A5 'Allocated resources' | grep memory
 ```
+
+On large this does not register. Those nodes are far bigger and sit between 6
+and 11 percent requested.
+
+Adding a controller later is a flag change and a re-bootstrap, so starting
+narrow costs nothing.
 
 ## Rolling back
 
