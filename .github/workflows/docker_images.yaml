@@ -82,11 +82,14 @@ jobs:
 
           # Images whose own source actually changed. These are the ones worth
           # deploying.
+          # `|| true` because grep exits 1 when nothing matches, and under
+          # `set -o pipefail` that would end the step rather than mean "no
+          # images changed", which is a perfectly ordinary answer here.
           content_dirs=$(echo "$changed" \
             | grep -E '^docker/[^/]+/' \
             | cut -d/ -f1,2 \
             | sort -u \
-            | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done)
+            | while read -r d; do [ -f "$d/Dockerfile" ] && echo "$d"; done || true)
 
           # If the workflow itself changed, rebuild everything, because the
           # build logic changed and reasoning about what that edit affects is
