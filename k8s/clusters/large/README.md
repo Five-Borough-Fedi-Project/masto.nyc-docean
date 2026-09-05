@@ -5,7 +5,7 @@ normal web tier. Copied from `KeepSakes/k8s/ns-mastodon` on 2026-08-31, where
 they sat outside version control. Same bus-factor problem as the `private-*`
 files, without the secrecy that justifies it.
 
-This is a snapshot of what runs today, not a rewrite. Phase 3 folds the shared
+This is a snapshot of what runs today. Phase 3 folds the shared
 parts into `apps/mastodon/base/` and leaves the differences here.
 
 ## Not copied

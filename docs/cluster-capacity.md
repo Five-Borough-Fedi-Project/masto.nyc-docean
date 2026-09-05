@@ -15,7 +15,7 @@ This part has not changed and will not. Three `s-2vcpu-4gb` nodes read as
 | capacity | 3915 MiB | 11745 MiB |
 | **allocatable** | **2996 MiB** | **8988 MiB** |
 
-Plan against 8988, never 11745.
+Plan against 8988.
 
 ## Where it currently sits
 
@@ -34,8 +34,9 @@ this cluster was wrong by most of a gigabyte and the requested column was
 fiction. It is now a slight overstatement instead, which is the correct
 direction to be wrong in.
 
-The number that constrains scheduling is the largest free block on any single
-node, currently 1972 MiB on `375jak`, not the 2586 MiB cluster total.
+Scheduling is bounded by the largest free block on any single node, currently
+1972 MiB on `375jak`. The 2586 MiB cluster total is spread across three machines
+and no single pod can reach it.
 
 ## Restarting mastodon-web
 
@@ -53,7 +54,7 @@ thing to check before assuming it will work again:
 kubectl --context=do describe nodes | grep -A5 'Allocated resources' | grep memory
 ```
 
-If no node has 1024 MiB free, delete the pod rather than rolling it. The
+If no node has 1024 MiB free, delete the pod instead. The
 ReplicaSet schedules the replacement once the old one releases its request:
 
 ```sh

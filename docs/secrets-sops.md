@@ -1,7 +1,7 @@
 # Encrypted secrets
 
-Secrets live in the repository, encrypted with SOPS. Every clone is a backup,
-which is the point: before this, seven files existed in exactly one place and
+Secrets live in the repository, encrypted with SOPS. Every clone is a backup.
+Before this, seven files existed in exactly one place and
 losing that machine meant losing `SECRET_KEY_BASE` and the
 `ACTIVE_RECORD_ENCRYPTION_*` keys, and with them every existing 2FA enrollment
 and push subscription.
@@ -114,7 +114,7 @@ that could not recreate them. Losing the cluster would have lost both.
 
 They were exported from the live cluster on 2026-09-05, stripped of runtime
 metadata, encrypted and committed. If you ever wonder whether a `private-*`
-file is real, check that it parses rather than that it exists.
+file is real, check that it parses. Existence proves nothing.
 
 ## Known duplication
 

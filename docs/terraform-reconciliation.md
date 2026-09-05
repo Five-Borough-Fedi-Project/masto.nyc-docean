@@ -14,7 +14,7 @@ piece by piece and stop whenever something looks wrong.
 
 **Never run a bare `tofu apply` until a full `tofu plan` reports no changes.**
 Every step below is either read-only or state-only. The first bare apply should
-be a formality, not a discovery.
+be a formality.
 
 **Do not apply the database firewalls until `var.large_node_ips` is populated.**
 `digitalocean_database_firewall` reconciles the whole rule set. The address that
@@ -47,15 +47,15 @@ replacement. Any apply would have destroyed and recreated production.
 attribute. To drive an upgrade from Terraform instead, remove the line and set
 `auto_upgrade = false`. Running both is how this happened.
 
-### `-target` is not a safety boundary
+### `-target` does not bound blast radius
 
-The replacement was found while planning a database firewall, not the cluster.
+The replacement was found while planning a database firewall. The cluster was never the target.
 `-target` includes the target's dependencies, and every database firewall
 depends on the Kubernetes cluster through its `k8s` rule. So a narrow apply
 against one firewall would have taken the cluster with it.
 
-Scope a plan with `-target` to reduce output, never to bound blast radius. Read
-every resource in the plan, not the one you aimed at.
+Scope a plan with `-target` to reduce output. It does not limit what the plan
+can touch. Read every resource in it, including the ones you did not aim at.
 
 ### The firewall rules
 
@@ -140,8 +140,8 @@ tofu plan -target='digitalocean_database_cluster.mastodon_pg'
 ## Step 4: resources missing from state
 
 Adopt an existing cloud resource without creating anything, using an `import`
-block rather than the older `tofu import` command, so the intent lands in
-version control:
+block, so the intent lands in version control. The older `tofu import` command
+leaves no trace in the repository:
 
 ```hcl
 import {
@@ -154,7 +154,8 @@ Then `tofu plan` shows it as an import with no changes. Delete the block after
 the import succeeds.
 
 To drop something from state without destroying the real resource, use a
-`removed` block, never `tofu state rm`, so the intent is reviewable:
+`removed` block, so the intent is reviewable. `tofu state rm` does the same job
+and leaves nothing behind to review:
 
 ```hcl
 removed {
@@ -186,20 +187,21 @@ Plan: 2 to add, 3 to change, 0 to destroy.
 
 - **2 to add** are the two `kubernetes_secret_v1` resources the secrets change
   intends to create.
-- **3 to change** are the database firewalls. Verified against the JSON plan
-  rather than the rendered output: each goes from two rules to two rules and
-  keeps its `ip_addr` entry. The change is the computed `uuid` and `created_at`
-  fields plus the new sensitivity marking, not the rule set.
+- **3 to change** are the database firewalls. Verified against the JSON plan,
+  which the rendered output does not make clear: each goes from two rules to two
+  rules and keeps its `ip_addr` entry. What changes is the computed `uuid` and
+  `created_at` fields plus the new sensitivity marking. The rule set is
+  untouched.
 - **0 to destroy.** It was 1 before, and the one was the Kubernetes cluster.
 
 The address does not appear anywhere in the plan output. It renders as
-`(sensitive value)`, which is what makes the phase 6 CI apply safe to turn on.
+`(sensitive value)`. That is what makes the phase 6 CI apply safe to turn on.
 
 Do not read "0 to destroy" as permission to apply. The secrets change still
 needs the staged rollout in `docs/secrets-rollout.md`, and both pull requests
 have to land first.
 
-## "0 to destroy" is not a safety signal
+## What the destroy count leaves out
 
 Measured on `main` after the guardrails landed and before the secrets change
 did:
@@ -213,9 +215,9 @@ firewalls and cut `mastodon-large` off from Postgres, Valkey and OpenSearch at
 once. Terraform classifies it as `update in-place`, because the firewall
 resource survives. Only a rule inside it disappears.
 
-The destroy count tracks resources, not consequences. A resource that stays
-alive with its contents emptied counts as zero. Read every `-` line in a plan,
-not the summary.
+The destroy count tracks resources and says nothing about consequences. A
+resource that stays alive with its contents emptied counts as zero. Read every
+`-` line in a plan.
 
 This also means the plan on `main` is safe to run and not safe to apply until
 the secrets change lands, since that is what carries `var.large_node_ips`.

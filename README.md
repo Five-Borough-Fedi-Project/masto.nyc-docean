@@ -10,30 +10,24 @@ Since we came from a bare metal Kubernetes setup, we wanted to maintain as much 
 
 Both clusters run [Flux](https://fluxcd.io/), so **merging to `main` deploys**.
 Change a manifest under `k8s/`, open a pull request, merge, and each cluster
-reconciles within ten minutes. `kubectl apply` is no longer the way things ship,
-and manual changes get reverted. See [docs/flux-bootstrap.md](docs/flux-bootstrap.md).
+reconciles within ten minutes. `kubectl apply` is no longer how things ship, and
+manual changes get reverted.
 
 Infrastructure is OpenTofu, planned on every pull request and applied on merge
-behind an approval gate. See [docs/terraform-reconciliation.md](docs/terraform-reconciliation.md).
+behind an approval gate.
 
-## Documentation
+## About docs/
 
-| | |
-|---|---|
-| [devops-roadmap.md](docs/devops-roadmap.md) | where the whole migration stands, and what is still open |
-| [multi-cluster.md](docs/multi-cluster.md) | how do-production and `large` divide the work |
-| [cluster-capacity.md](docs/cluster-capacity.md) | why 12 GiB of nodes is 8988 MiB of usable memory |
-| [flux-bootstrap.md](docs/flux-bootstrap.md) | how GitOps is wired, and how to suspend it |
-| [upgrade-runbook.md](docs/upgrade-runbook.md) | **read before any Mastodon version bump** |
-| [secrets-sops.md](docs/secrets-sops.md) | how encrypted secrets work, two age keys |
-| [secrets-rollout.md](docs/secrets-rollout.md) | record of the ConfigMap to Secret migration |
-| [terraform-reconciliation.md](docs/terraform-reconciliation.md) | reading a plan safely on drifted state |
-| [logging-teardown.md](docs/logging-teardown.md) | why there is no log shipping right now |
-| [renovate.md](docs/renovate.md) | what gets dependency updates, and what deliberately does not |
+**Everything under `docs/` is AI slop.** It was written by an LLM and no human
+has edited the prose. The commands and measurements in it were checked against
+the live clusters at the time of writing, so the facts were true when they were
+written. The writing is machine-generated throughout, it is far longer than it
+needs to be, and it will drift as the infrastructure changes. Read it for the
+commands and treat the rest with suspicion.
 
 ## Setup instructions:
 
-**OpenTofu 1.8 or newer, not Terraform.** The backend block in `provider.tf` references variables, which OpenTofu supports as of 1.8 and HashiCorp Terraform does not support at all. `terraform init` will reject this repo.
+**Use OpenTofu 1.8 or newer.** The backend block in `provider.tf` references variables, which OpenTofu supports as of 1.8 and HashiCorp Terraform does not support at all. `terraform init` will reject this repo.
 
 1. In the DOcean console, generate a new [Personal access token](https://cloud.digitalocean.com/account/api/tokens). Put them aside for later.
 2. From that page, click on the "Spaces Keys" tab and create a new set of s3 creds for the state. Put them aside for later.

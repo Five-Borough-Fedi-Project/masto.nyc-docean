@@ -46,7 +46,7 @@ the point.
 ## Protecting the large cluster's address
 
 `var.large_node_ips` is marked sensitive, so `tofu plan` renders each firewall
-rule as `(sensitive value)` rather than printing the address. The Terraform uses
+rule as `(sensitive value)`, so the address never reaches the log. The Terraform uses
 `nonsensitive()` to iterate the list and `sensitive()` to re-mark each element,
 because `for_each` cannot walk a sensitive value directly.
 
@@ -60,8 +60,8 @@ Supply the value locally through the gitignored `terraform.tfvars`, and in CI
 through a `TF_VAR_large_node_ips` Actions secret. Confirm on the first real plan
 that the rules render as `(sensitive value)`.
 
-Two limits worth knowing. Sensitivity covers plan and apply output, not state,
-so the address sits in cleartext in the Spaces state bucket. And the address is
+Two limits worth knowing. Sensitivity covers plan and apply output. State is
+exempt, so the address sits in cleartext in the Spaces state bucket. And the address is
 still allowlisted at three managed databases, so it remains a credential-shaped
 thing even though it is only an IP.
 
@@ -70,11 +70,11 @@ TCP, which would remove the allowlist and stop the databases accepting
 connections from any enumerable address. It also adds a userspace proxy hop to
 every query. Rails issues many small queries per request and the web tier runs
 on `large`, so that cost lands on the critical path. Latency is the binding
-constraint here, not the allowlist.
+constraint here.
 
 If the allowlist ever needs to go, the option that does not add a hop is a
 kernel-level link, WireGuard or Tailscale, terminated on a small droplet inside
-the VPC. That costs a droplet rather than a round trip. Until then the address
+the VPC. That costs a droplet and adds no round trip. Until then the address
 stays allowlisted and stays protected.
 
 ## Repository layout

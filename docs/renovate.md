@@ -10,17 +10,16 @@ request to merge: Renovate reads the config and starts.
 ## Where to look
 
 A Dependency Dashboard issue tracks everything pending, including updates
-deliberately held back. Read the dashboard rather than the pull request list, or
-you will only see what it decided to propose and not what it is sitting on.
+deliberately held back. Read the dashboard. The pull request list shows only
+what Renovate chose to propose, and says nothing about what it is sitting on.
 
 After that, a Dependency Dashboard issue tracks everything pending, including
-updates deliberately held back. Read the dashboard rather than the pull request
-list to see the full picture.
+updates deliberately held back. Read the dashboard first to see the full picture.
 
 ## What it will not touch, and why
 
 **Mastodon.** `ghcr.io/mastodon/mastodon` and `mastodon-streaming` are disabled
-outright. A Mastodon version bump is not a merge: it needs the pre-deployment
+outright. A Mastodon version bump needs more than a merge. It needs the pre-deployment
 migration, then the image rollout, then the post-deployment migration, in that
 order, with the site drained in between. Flux applies whatever is on main and
 knows none of that. An automated pull request that looks like every other
@@ -29,8 +28,8 @@ unmigrated database.
 
 The 4.7.0 upgrade in `docs/upgrade-runbook.md` also turned up twenty
 post-deployment migrations spanning three years that had never run, because
-`SKIP_POST_DEPLOYMENT_MIGRATIONS` was permanently set. That is the kind of thing
-found by a person reading release notes, not by a bot comparing version strings.
+`SKIP_POST_DEPLOYMENT_MIGRATIONS` was permanently set. A person reading release notes
+finds that. A bot comparing version strings never would.
 
 **Images this repository builds.** `welcome-bot`, `timeline-health` and
 `sync-blocked-email-domains` are tagged with the commit that produced them.
@@ -39,7 +38,7 @@ There is no upstream to check.
 ## What it will do
 
 Everything else that runs alongside Mastodon, grouped into one pull request so a
-quiet week is one review rather than six: cloudflared, nginx, libretranslate,
+quiet week is one review instead of six: cloudflared, nginx, libretranslate,
 kube-state-metrics, metrics-server, the backup and repack images, and the two
 debugging images. GitHub Actions and the DigitalOcean Terraform provider are
 grouped separately.
@@ -58,7 +57,7 @@ skipped the checksum check would defeat the reason for pinning it.
 
 `pinDigests` is on, so tags become `tag@sha256:...`. A tag can be moved by
 whoever owns it; a digest cannot. Renovate then keeps the digest current, which
-is the part that makes pinning sustainable rather than a thing that rots.
+is what makes pinning sustainable. Left alone, pinned digests go stale.
 
 Two images were pinned by hand when this landed, to the digests they were
 actually running: `filefrog/k8s-hacks:pause` and
