@@ -1,0 +1,15 @@
+# Useful, but nobody notices for an hour. A negative value puts these below
+# workloads that set no class at all, which sit at zero, so sidekiq and the
+# cronjobs outrank them without having to say so.
+#
+# preemptionPolicy: Never means a pod in this class waits for room rather than
+# evicting something else to get it. Nothing here is worth interrupting
+# federation for.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: masto-low
+value: -100
+globalDefault: false
+preemptionPolicy: Never
+description: "Deferrable. Evict these before anything that serves traffic."

@@ -12,6 +12,7 @@ spec:
       labels:
         app.kubernetes.io/name: libretranslate
     spec:
+      priorityClassName: masto-low
       containers:
       - name: libretranslate
         image: docker.io/libretranslate/libretranslate:v1.6.0

@@ -12,6 +12,7 @@ spec:
       labels:
         app.kubernetes.io/name: nginx
     spec:
+      priorityClassName: masto-critical
       volumes:
         - name: masto-nginx-config
           configMap:

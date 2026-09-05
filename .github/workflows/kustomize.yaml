@@ -50,7 +50,8 @@ jobs:
           python3 - <<'PY'
           import yaml, sys
           CLUSTER_SCOPED = {'Namespace','ClusterRole','ClusterRoleBinding',
-                            'CustomResourceDefinition','StorageClass','APIService'}
+                            'CustomResourceDefinition','StorageClass','APIService',
+                            'PriorityClass'}
           bad = []
           for d in yaml.safe_load_all(open('/tmp/built.yaml')):
               if not d: continue

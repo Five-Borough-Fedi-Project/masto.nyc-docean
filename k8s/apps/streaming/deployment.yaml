@@ -23,6 +23,7 @@ spec:
         app.kubernetes.io/instance: mastodon
         app.kubernetes.io/component: streaming
     spec:
+      priorityClassName: masto-critical
       serviceAccountName: mastodon
       securityContext:
         fsGroup: 991

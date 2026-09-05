@@ -1,0 +1,14 @@
+# The request path. If the scheduler has to choose, or the kubelet has to
+# evict, these are the pods that keep masto.nyc answering: the tunnel that
+# terminates inbound traffic, the proxy behind it, Rails, and the websocket
+# tier.
+#
+# 100000 sits far below system-cluster-critical (2000000000), so nothing here
+# can push aside a component the cluster itself needs to keep running.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: masto-critical
+value: 100000
+globalDefault: false
+description: "Serves user traffic. Schedule first, evict last."
