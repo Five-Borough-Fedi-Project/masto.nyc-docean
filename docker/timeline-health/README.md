@@ -19,7 +19,7 @@ This container is designed to run as a Kubernetes CronJob to monitor the health 
 ```bash
 python -m app.health_check \
   --hostname masto.nyc \
-  --freshness 60 \
+  --freshness 1800 \
   --sample-size 20 \
   --heartbeat-url https://uptime.betterstack.com/api/v1/heartbeat/xxx
 ```
@@ -31,7 +31,7 @@ All arguments can also be set via environment variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MASTODON_HOSTNAME` | The Mastodon instance hostname (e.g., masto.nyc) | Required |
-| `FRESHNESS_THRESHOLD` | Maximum age in seconds for posts to be considered fresh | 60 |
+| `FRESHNESS_THRESHOLD` | Maximum age in seconds for posts to be considered fresh | 3000 |
 | `SAMPLE_SIZE` | Number of posts to fetch and check for the newest one | 20 |
 | `HEARTBEAT_URL` | URL to GET when timeline is healthy | Required |
 
@@ -44,7 +44,7 @@ docker build -t timeline-health .
 # Run with environment variables
 docker run \
   -e MASTODON_HOSTNAME=masto.nyc \
-  -e FRESHNESS_THRESHOLD=60 \
+  -e FRESHNESS_THRESHOLD=1800 \
   -e SAMPLE_SIZE=20 \
   -e HEARTBEAT_URL=https://uptime.betterstack.com/api/v1/heartbeat/xxx \
   timeline-health
@@ -52,7 +52,7 @@ docker run \
 # Run with command line arguments
 docker run timeline-health \
   --hostname masto.nyc \
-  --freshness 60 \
+  --freshness 1800 \
   --sample-size 20 \
   --heartbeat-url https://uptime.betterstack.com/api/v1/heartbeat/xxx
 ```

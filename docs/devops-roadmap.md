@@ -59,9 +59,6 @@ Phase 8 is the only one outstanding. Everything above it landed between
   BetterStack half of that exposure was closed on 2026-09-05.
 - **Delete the plaintext `private-*` files** now that encrypted copies are
   committed and Flux applies them. Phase 4's tail.
-- **`timeline-health-check` fires on a 60 second freshness threshold** while
-  running every five minutes, so it cannot tell a stalled federation from a
-  quiet minute. It failed twice on 2026-09-05 at 61.1 seconds.
 - **`sync-blocked-email-domains` has no Dockerfile in this repository.** Its
   image is pinned by digest, so it will not change under you, but it cannot be
   rebuilt from anything here.
