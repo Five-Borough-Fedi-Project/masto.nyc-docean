@@ -59,9 +59,6 @@ Phase 8 is the only one outstanding. Everything above it landed between
   BetterStack half of that exposure was closed on 2026-09-05.
 - **Delete the plaintext `private-*` files** now that encrypted copies are
   committed and Flux applies them. Phase 4's tail.
-- **`scale_for_upgrade.sh` passes no `--context`** and only knows the
-  do-production topology. Both clusters have a `mastodon` namespace with
-  identically named deployments. See `docs/upgrade-runbook.md` step 7.
 - **`timeline-health-check` fires on a 60 second freshness threshold** while
   running every five minutes, so it cannot tell a stalled federation from a
   quiet minute. It failed twice on 2026-09-05 at 61.1 seconds.
