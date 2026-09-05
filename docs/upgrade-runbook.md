@@ -59,35 +59,22 @@ migrated. Step 6a is not optional.
 
 ## The window
 
-6a. **Suspend Flux on both clusters, before draining anything.**
-
-    ```sh
-    flux --context=do  suspend kustomization apps
-    flux --context=lab suspend kustomization apps
-    ```
-
-    Without this, reconciliation restores `replicas: 1` within ten minutes and
-    Rails comes up against a partially migrated schema. Confirm both report
-    suspended before continuing:
-
-    ```sh
-    flux --context=do get kustomizations && flux --context=lab get kustomizations
-    ```
-
-7. **Drain.** `./scale_for_upgrade.sh drain` scales every Mastodon deployment
-   to zero, including the consolidated `mastodon-sidekiq-realtime` and
-   `mastodon-sidekiq-bulk`.
-
-   **The script passes no `--context`.** It acts on whatever context is
-   current, and both clusters have a `mastodon` namespace with identically
-   named deployments. Check before running it, every time:
+7. **Drain both clusters.** The script takes the context as a required
+   argument and suspends Flux itself:
 
    ```sh
-   kubectl config current-context
+   ./scale_for_upgrade.sh drain do
+   ./scale_for_upgrade.sh drain lab
    ```
 
-   It also only scales the do-production topology. `large` runs its web tier at
-   two replicas and has to be drained separately.
+   It prints the cluster and the deployments it is about to touch. Read that
+   line. Suspending Flux is the part that matters: both clusters reconcile
+   `main` every ten minutes and every deployment declares its replica count in
+   git, so a running Flux brings Rails back up against a half migrated schema.
+
+   Only the Rails workloads scale down, selected by
+   `app.kubernetes.io/name=mastodon`. The tunnels, nginx, libretranslate and
+   welcome-webhook keep running.
 
 8. **Migrate.** With the site down you can skip the pre/post split. Upstream
    recommends one pass with post-deployment migrations enabled when services
@@ -141,25 +128,12 @@ migrated. Step 6a is not optional.
    Check first with `kubectl --context=do diff -k k8s/clusters/do-production`,
    which answers whether the cluster matches the repo in one command.
 
-10. **Fill.** Run `./scale_for_upgrade.sh fill`, then confirm the rollout and
-    load the site.
+10. **Fill.** `./scale_for_upgrade.sh fill do` and `fill lab`. This resumes
+    Flux and forces a reconcile; Flux restores the replica counts from git,
+    which is the only copy that stays correct when a deployment changes. Then
+    confirm the rollout and load the site.
 
 ## After
-
-10a. **Resume Flux**, once the site is up and you are satisfied:
-
-     ```sh
-     flux --context=do  resume kustomization apps
-     flux --context=lab resume kustomization apps
-     ```
-
-     Then confirm it reconciles to no changes. If it wants to alter something,
-     the cluster and the merged branch disagree and the cluster is about to
-     lose:
-
-     ```sh
-     kubectl --context=do diff -k k8s/clusters/do-production
-     ```
 
 11. Un-suspend whatever you paused, such as `timeline-health-check`.
 12. Re-run the migration status check.
