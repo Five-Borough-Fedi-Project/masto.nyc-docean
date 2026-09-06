@@ -130,7 +130,35 @@ the cluster. Git never had it, Flux applies the git state, and removing the
 annotation changed the pod template hash, which triggered one rollout. That is
 drift correction working exactly as intended.
 
-It was a one-off. No other workload on either cluster carries that annotation.
+It happened again on 2026-09-06, when metrics-server and kube-state-metrics
+came under Flux. kube-state-metrics carried the same February 2025 annotation
+and restarted; metrics-server, applied from these manifests the day before, did
+not.
+
+## kubectl diff does not predict what Flux will do
+
+Worth knowing before adopting anything else, because it is the trap in the
+paragraph above.
+
+`kubectl diff` shows what a client-side apply would change, and client-side
+apply merges: it leaves fields alone that the manifest does not mention, so an
+annotation living only in the cluster produces no diff. Flux uses server-side
+apply, which takes ownership and removes fields the manifest does not declare.
+
+So `kubectl diff -k` exiting 0 means the manifests match, and says nothing about
+whether Flux will restart something. Before pointing Flux at a path, check for
+cluster-only fields directly:
+
+```sh
+kubectl --context=do get deploy,daemonset -n <ns> -o json \
+  | grep -c 'kubectl.kubernetes.io/restartedAt'
+```
+
+Anything it finds will be removed on the first reconciliation, and removing a
+pod-template annotation changes the template hash and rolls the workload.
+
+Three Deployments still carry one: coredns, hubble-relay and hubble-ui. All are
+managed by DigitalOcean and none are under Flux, so they are unaffected.
 Both clusters otherwise reconciled to no changes, which is the boring result you
 want from a first bootstrap.
 
