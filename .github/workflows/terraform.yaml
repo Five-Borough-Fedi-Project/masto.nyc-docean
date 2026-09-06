@@ -33,6 +33,18 @@ on:
       - '**.tf'
       - '.terraform.lock.hcl'
       - '.github/workflows/terraform.yaml'
+  # The mastodon-large origin is a dynamic address on a home connection. When
+  # the ISP changes it, the database firewall stops matching and large loses
+  # Postgres, Valkey and OpenSearch at once. Nothing else notices quickly:
+  # Cloudflare pulls the pool and fails traffic over without saying anything.
+  #
+  # A scheduled plan re-resolves the hostname and reports the drift. It plans
+  # only. Applying stays behind the environment gate, because a timer that can
+  # change a production database firewall unattended is a large thing to own
+  # for the sake of a few minutes.
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -103,6 +115,31 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit $rc
+
+      # On a schedule there is nobody watching the run, so drift has to make
+      # noise. A failed workflow emails whoever owns the repository, which is
+      # the cheapest alerting available and needs nothing new to break.
+      - name: A scheduled run should find nothing to do
+        if: github.event_name == 'schedule'
+        run: |
+          if grep -q '^No changes' plan.txt; then
+            echo "No drift." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Terraform drift detected on a scheduled run"
+            echo
+            echo "Nothing merged to cause this, so either the mastodon-large"
+            echo "address changed or something was edited outside Terraform."
+            echo
+            echo '```'
+            grep -E '^Plan:|^No changes|^Error' plan.txt | head -3
+            echo '```'
+            echo
+            echo "Read the plan, then approve the apply if it is what you expect."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Scheduled plan is not empty. See the job summary."
+          exit 1
 
       - name: Refuse to proceed if anything would be destroyed or replaced
         run: |
