@@ -36,6 +36,10 @@ spec:
         #     name: masto-nginx-config-prd
       containers:
         - name: mastodon-web
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           # No memory limit, on purpose.
           #
           # Puma grows over a long run and drops back on restart: 814Mi here
