@@ -13,11 +13,13 @@ on:
   pull_request:
     paths:
       - 'k8s/**'
+      - 'scripts/check-manifests.py'
       - '.github/workflows/kustomize.yaml'
   push:
     branches: [main]
     paths:
       - 'k8s/**'
+      - 'scripts/check-manifests.py'
       - '.github/workflows/kustomize.yaml'
 
 permissions:
@@ -45,56 +47,24 @@ jobs:
           grep '^kind:' /tmp/built.yaml | sort | uniq -c | sort -rn >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Every namespaced object must declare its namespace
-        run: |
-          python3 - <<'PY'
-          import yaml, sys
-          CLUSTER_SCOPED = {'Namespace','ClusterRole','ClusterRoleBinding',
-                            'CustomResourceDefinition','StorageClass','APIService',
-                            'PriorityClass'}
-          bad = []
-          for d in yaml.safe_load_all(open('/tmp/built.yaml')):
-              if not d: continue
-              kind = d.get('kind')
-              md = d.get('metadata') or {}
-              if kind in CLUSTER_SCOPED:
-                  if 'namespace' in md:
-                      bad.append(f"{kind}/{md.get('name')} is cluster-scoped but sets a namespace")
-              elif not md.get('namespace'):
-                  bad.append(f"{kind}/{md.get('name')} has no namespace")
-          if bad:
-              print("\n".join("  " + b for b in bad)); sys.exit(1)
-          print("  all objects namespaced correctly")
-          PY
+      - name: Check the rendered manifests
+        run: python3 scripts/check-manifests.py "${{ matrix.cluster }}" < /tmp/built.yaml
 
-      - name: No image may float on a mutable tag
+  # kube-system components, reconciled by flux/do-production/infrastructure.yaml
+  # rather than by a cluster overlay. A separate job so the existing per-cluster
+  # check names stay as they are.
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and check k8s/infrastructure
         run: |
-          python3 - <<'PY'
-          import yaml, sys, re
-          bad = []
-          def walk(spec, owner):
-              for c in (spec.get('containers') or []) + (spec.get('initContainers') or []):
-                  img = c.get('image','')
-                  ref = img.rsplit('/',1)[-1]
-                  # A digest is immutable, full stop.
-                  if '@sha256:' in img:
-                      continue
-                  tag = ref.split(':',1)[1] if ':' in ref else ''
-                  # A version tag pins if it carries at least major.minor, and a
-                  # 40 character hex tag is a commit, which is immutable too.
-                  # Anything else (`latest`, `alpine`, `pause`, a bare major
-                  # like `16`) moves under you without the manifest changing.
-                  if re.fullmatch(r'v?\d+\.\d+.*', tag) or re.fullmatch(r'[0-9a-f]{40}', tag):
-                      continue
-                  bad.append(f"{owner} uses {img!r}, which is not pinned")
-          for d in yaml.safe_load_all(open('/tmp/built.yaml')):
-              if not d: continue
-              k = d.get('kind'); n = (d.get('metadata') or {}).get('name')
-              t = (d.get('spec') or {}).get('template')
-              if t: walk(t.get('spec') or {}, f"{k}/{n}")
-              jt = ((d.get('spec') or {}).get('jobTemplate') or {}).get('spec',{}).get('template')
-              if jt: walk(jt.get('spec') or {}, f"{k}/{n}")
-          if bad:
-              print("\n".join("  " + b for b in bad)); sys.exit(1)
-          print("  every image is pinned")
-          PY
+          kubectl kustomize k8s/infrastructure > /tmp/built.yaml
+          python3 scripts/check-manifests.py k8s/infrastructure < /tmp/built.yaml
+          {
+            echo "### k8s/infrastructure"
+            echo '```'
+            grep '^kind:' /tmp/built.yaml | sort | uniq -c | sort -rn
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
