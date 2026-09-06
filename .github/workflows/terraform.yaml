@@ -46,6 +46,12 @@ env:
   TF_VAR_do_token: ${{ secrets.DO_TOKEN }}
   TF_VAR_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
   TF_VAR_state_key: ${{ secrets.TF_STATE_KEY }}
+  # The mastodon-large origin is resolved per job from a DDNS hostname, because
+  # the address is dynamic and nobody knows when the ISP changes it. Actions
+  # masks the hostname because it is a secret, and the script masks whatever it
+  # resolves to. LARGE_NODE_IPS remains as a fallback for when the hostname
+  # secret is absent.
+  LARGE_NODE_HOSTNAME: ${{ secrets.LARGE_NODE_HOSTNAME }}
   TF_VAR_large_node_ips: ${{ secrets.LARGE_NODE_IPS }}
 
 jobs:
@@ -55,6 +61,9 @@ jobs:
       summary: ${{ steps.plan.outputs.summary }}
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve the mastodon-large origin
+        run: ./scripts/resolve-large-ip.sh
+
       - uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: ${{ env.TOFU_VERSION }}
@@ -144,6 +153,9 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve the mastodon-large origin
+        run: ./scripts/resolve-large-ip.sh
+
       - uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: ${{ env.TOFU_VERSION }}

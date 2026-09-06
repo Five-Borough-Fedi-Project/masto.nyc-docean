@@ -22,8 +22,18 @@ variable "masto_ns" {
 ### Cloudflare entirely.
 ###
 ### Supply it, never commit it:
-###   locally  terraform.tfvars, which is gitignored
-###   in CI    TF_VAR_large_node_ips, from a GitHub Actions secret
+###   locally  terraform.tfvars, which is gitignored, or
+###            eval "$(LARGE_NODE_HOSTNAME=... ./scripts/resolve-large-ip.sh)"
+###   in CI    scripts/resolve-large-ip.sh resolves a DDNS hostname held in the
+###            LARGE_NODE_HOSTNAME secret and exports this variable per job
+###
+### The address is dynamic and nobody knows when the ISP changes it, so CI
+### resolves it on every run rather than storing it. Resolution happens in the
+### workflow rather than through the Terraform dns provider for two reasons:
+### the hostname never enters state, and a failure prints the script's error
+### instead of a provider error naming the host. Provider errors are not
+### redacted, and the hostname resolves to this address, so leaking one leaks
+### the other.
 ###
 ### Do not try to design the allowlist away. Tunneling the connection through
 ### cloudflared was considered and rejected: the path is latency sensitive and a
