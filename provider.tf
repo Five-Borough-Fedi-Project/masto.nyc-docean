@@ -26,6 +26,14 @@ terraform {
       source  = "digitalocean/digitalocean"
       version = "~> 2.0"
     }
+    ### Declared ahead of use, and declared explicitly: a bare provider block
+    ### makes OpenTofu infer hashicorp/cloudflare, which is not where this
+    ### provider lives. Nothing references it yet, so it is never instantiated
+    ### and a plan runs without a Cloudflare token. See cloudflare.tf, issue #11.
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
   }
 }
 provider "kubernetes" {

@@ -189,11 +189,17 @@ was built for and needs no special handling.
 
 ## After
 
-11. Un-suspend whatever you paused, such as `timeline-health-check`.
-12. Re-run the migration status check.
-13. Expect disk usage to settle above where it started. Autovacuum reclaims the
+11. **Purge the Cloudflare cache.** Run the **Purge Cloudflare cache** workflow
+    once the new version is actually serving. It is a separate workflow because
+    Flux does the deploy minutes after the merge and Actions cannot watch that
+    happen; it also cannot reach either cluster, while Cloudflare is a public
+    API it can reach.
+
+12. Un-suspend whatever you paused, such as `timeline-health-check`.
+13. Re-run the migration status check.
+14. Expect disk usage to settle above where it started. Autovacuum reclaims the
     dead tuples for reuse but does not return the space to the operating system.
-14. Check node memory. `mastodon-web` still grows to roughly 1.1 GiB over a few
+15. Check node memory. `mastodon-web` still grows to roughly 1.1 GiB over a few
     days of serving, but the cluster now has room for it: the sidekiq
     consolidation and the removal of vector took do-production from a node at
     103% to the current 71% of requests cluster-wide, and there have been no
