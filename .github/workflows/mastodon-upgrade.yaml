@@ -67,6 +67,50 @@ jobs:
             echo "  ghcr.io/${repo}:${VERSION} exists"
           done
 
+      # Mastodon marks non-routine upgrades in an "Upgrade overview" section
+      # with a fixed vocabulary. Across 60 releases only four markers appear:
+      #
+      #   Requires assets recompilation                 29x, mostly patches
+      #   Requires streaming server restart              3x, only .0 minors
+      #   Requires database migrations                   2x, only .0 minors
+      #   Requires unusually long database migrations    1x, v4.7.0
+      #
+      # Assets recompilation does not apply here, since these are upstream
+      # prebuilt images. The database markers have only ever appeared on .0
+      # releases, so the version number is a decent proxy, and the marker is the
+      # thing that is actually true.
+      - name: Read the release notes for anything unusual
+        id: notes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          body=$(curl -sfL -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/mastodon/mastodon/releases/tags/${VERSION}" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("body") or "")') || {
+              echo "::warning::Could not fetch release notes for ${VERSION}. Read them yourself."
+              echo "risk=unknown" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          overview=$(printf '%s' "$body" | sed -n '/[Uu]pgrade overview/,/^#\{1,\} /p')
+          printf '%s' "$overview" | sed 's/^/  /'
+
+          risk=routine
+          if printf '%s' "$overview" | grep -qi 'unusually long database migrations'; then
+            risk=long
+          elif printf '%s' "$overview" | grep -qi 'requires database migrations'; then
+            risk=migrations
+          fi
+          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+
+          case "$risk" in
+            long)
+              echo "::warning::${VERSION} declares unusually long database migrations. Use the manual path in docs/upgrade-runbook.md." ;;
+            migrations)
+              echo "::notice::${VERSION} declares database migrations. The Flux ordering handles these, but read the notes." ;;
+            *)
+              echo "::notice::${VERSION} declares nothing unusual for a container deployment." ;;
+          esac
+
       - name: Bump the overlays and the migration jobs, and prove they build
         env:
           VERSION: ${{ inputs.version }}
@@ -135,6 +179,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           CURRENT: ${{ steps.check.outputs.current }}
           ACTOR: ${{ github.actor }}
+          RISK: ${{ steps.notes.outputs.risk }}
         run: |
           set -euo pipefail
           branch="upgrade/mastodon-${VERSION}"
@@ -151,6 +196,8 @@ jobs:
           **Do not merge outside an upgrade window.** Flux reconciles \`main\`
           within ten minutes, so merging deploys the new image. The migrations
           have to run first, against a drained site.
+
+          Release notes classify this as: **${RISK}**
 
           Read \`docs/upgrade-runbook.md\`. The short version:
 
