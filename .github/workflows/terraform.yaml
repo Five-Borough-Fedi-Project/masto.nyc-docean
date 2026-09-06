@@ -64,6 +64,11 @@ env:
   # resolves to. LARGE_NODE_IPS remains as a fallback for when the hostname
   # secret is absent.
   LARGE_NODE_HOSTNAME: ${{ secrets.LARGE_NODE_HOSTNAME }}
+  # Read-only, and read-only is enough. Importing writes to Terraform state, not
+  # to Cloudflare, so adopting the existing objects needs no write access. A
+  # later change that actually modifies Cloudflare would fail with a 403, which
+  # is a safe way to find out the token needs widening.
+  TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   TF_VAR_large_node_ips: ${{ secrets.LARGE_NODE_IPS }}
 
 jobs:

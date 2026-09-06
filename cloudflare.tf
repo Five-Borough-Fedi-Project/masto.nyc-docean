@@ -37,3 +37,10 @@ variable "cloudflare_zone_id" {
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
+
+### Identifiers, not credentials. They appear in every API call this repository
+### makes and are derivable from the domain name.
+locals {
+  cf_zone_id    = "5559ff186e4f4046b263d8eed2c6e1a3"
+  cf_account_id = "d5b597054872147b35d4d70517848002"
+}
