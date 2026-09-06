@@ -71,6 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       summary: ${{ steps.plan.outputs.summary }}
+      has_changes: ${{ steps.plan.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
       - name: Resolve the mastodon-large origin
@@ -104,6 +105,15 @@ jobs:
           # Resource-level actions only. Attribute diffs stay in the job log.
           grep -E '^\s+# \S+ (will|must)' plan.txt | sed 's/^ *//' > actions.txt || true
           grep -E '^Plan:|^No changes|^Error' plan.txt | head -3 > summary.txt || true
+          # Whether there is anything to apply. An empty plan still parks a job
+          # at the environment gate, and a parked apply holds the concurrency
+          # group, so every later apply queues behind it waiting for approval to
+          # do nothing.
+          if grep -q '^No changes' plan.txt; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
           {
             echo 'summary<<EOF'
             cat summary.txt
@@ -183,7 +193,13 @@ jobs:
 
   apply:
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # needs.plan.outputs.has_changes keeps an empty plan from asking for
+    # approval to do nothing. Two runs were parked at the gate on 2026-09-06,
+    # the second queued behind the first, both with nothing to apply.
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.plan.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     # Create this environment in repository settings with required reviewers.
     # Without it, a merge applies to production infrastructure unattended.
