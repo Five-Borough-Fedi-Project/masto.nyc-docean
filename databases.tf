@@ -1,12 +1,12 @@
 ################## POSTGRES ##################
 
 resource "digitalocean_database_cluster" "mastodon_pg" {
-  name       = "mastodon-pg-production"
-  engine     = "pg"
-  version    = "16"
-  size       = "db-s-2vcpu-4gb"
-  region     = var.region
-  node_count = 1
+  name                 = "mastodon-pg-production"
+  engine               = "pg"
+  version              = "16"
+  size                 = "db-s-2vcpu-4gb"
+  region               = var.region
+  node_count           = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   # This had to be raised to run pg
   storage_size_mib = 122880
@@ -40,7 +40,7 @@ resource "digitalocean_database_connection_pool" "mastodon_pg" {
   mode       = "transaction"
   size       = 85
   db_name    = digitalocean_database_db.mastodon_pg.name
-  user = digitalocean_database_user.mastodon_pg.name
+  user       = digitalocean_database_user.mastodon_pg.name
 }
 
 resource "digitalocean_database_firewall" "mastodon_pg" {
@@ -76,12 +76,12 @@ resource "digitalocean_database_firewall" "mastodon_pg" {
 ################## REDIS ##################
 
 resource "digitalocean_database_cluster" "mastodon_redis" {
-  name       = "mastodon-redis-production"
-  engine     = "valkey"
-  version    = "8"
-  size       = "db-s-1vcpu-1gb"
-  region     = var.region
-  node_count = 1
+  name                 = "mastodon-redis-production"
+  engine               = "valkey"
+  version              = "8"
+  size                 = "db-s-1vcpu-1gb"
+  region               = var.region
+  node_count           = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   maintenance_window {
     day  = "tuesday"
@@ -98,8 +98,8 @@ resource "digitalocean_database_cluster" "mastodon_redis" {
 }
 
 resource "digitalocean_database_valkey_config" "mastodon_redis" {
-  cluster_id             = digitalocean_database_cluster.mastodon_redis.id
-  timeout                = 90
+  cluster_id = digitalocean_database_cluster.mastodon_redis.id
+  timeout    = 90
 }
 
 resource "digitalocean_database_firewall" "mastodon_redis" {
@@ -124,12 +124,12 @@ resource "digitalocean_database_firewall" "mastodon_redis" {
 ################## OPENSEARCH ##################
 
 resource "digitalocean_database_cluster" "mastodon_os" {
-  name       = "mastodon-os-production"
-  engine     = "opensearch"
-  version    = "2"
-  size       = "db-s-1vcpu-2gb"
-  region     = var.region
-  node_count = 1
+  name                 = "mastodon-os-production"
+  engine               = "opensearch"
+  version              = "2"
+  size                 = "db-s-1vcpu-2gb"
+  region               = var.region
+  node_count           = 1
   private_network_uuid = digitalocean_vpc.mastodon_private.id
   maintenance_window {
     day  = "wednesday"

@@ -36,19 +36,19 @@ resource "digitalocean_firewall" "k8s_private" {
   tags = ["k8s:0778f05e-49d4-45d3-b777-c83fd31b9320"]
 
   inbound_rule {
-    protocol              = "tcp"
-    port_range            = "all"
+    protocol         = "tcp"
+    port_range       = "all"
     source_addresses = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
   }
 
   inbound_rule {
-    protocol              = "udp"
-    port_range            = "all"
+    protocol         = "udp"
+    port_range       = "all"
     source_addresses = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
   }
 
   inbound_rule {
-    protocol              = "icmp"
+    protocol         = "icmp"
     source_addresses = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
   }
 

@@ -80,8 +80,11 @@ jobs:
         with:
           tofu_version: ${{ env.TOFU_VERSION }}
 
-      - run: tofu fmt -check -recursive
-        continue-on-error: true
+      # Was continue-on-error, which meant it reported and never enforced. It
+      # had been failing since 2026-09-03 and nobody saw it, because a check
+      # that cannot fail the run is not a check.
+      - name: Formatting
+        run: tofu fmt -check -recursive
 
       - run: tofu init -input=false
       - run: tofu validate
