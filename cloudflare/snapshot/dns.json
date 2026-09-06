@@ -1,0 +1,414 @@
+{
+  "records": [
+    {
+      "comment": null,
+      "content": "4wje5cmcblurm5iz7uxp74qsojj2h6h2.dkim.amazonses.com",
+      "id": "3a92a2dbc747edc98369f4058822f7cf",
+      "meta": {},
+      "name": "4wje5cmcblurm5iz7uxp74qsojj2h6h2._domainkey.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "public.r2.dev",
+      "id": "e13b771eb4bf8a5714a3ab2a0cf95ed8",
+      "meta": {
+        "r2_bucket": "mastodev",
+        "read_only": true
+      },
+      "name": "cdn-dev.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "public.r2.dev",
+      "id": "2cb7b9b48bc149a9f08e10b24b7de39b",
+      "meta": {
+        "r2_bucket": "mastodev",
+        "read_only": true
+      },
+      "name": "cdn.dev.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "public.r2.dev",
+      "id": "0fe3f696e40b8a0f90c36029afdd2e39",
+      "meta": {
+        "r2_bucket": "mastodon",
+        "read_only": true
+      },
+      "name": "cdn.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "cvqgqddrsouqandvwtqpy2e7wy2ehldp.dkim.amazonses.com",
+      "id": "cae58201e739e210cbdd1c6217e28f51",
+      "meta": {},
+      "name": "cvqgqddrsouqandvwtqpy2e7wy2ehldp._domainkey.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "fm1.masto.nyc.dkim.fmhosted.com",
+      "id": "169b2b7ff6cc7ad00328202dddc436e5",
+      "meta": {},
+      "name": "fm1._domainkey.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "fm2.masto.nyc.dkim.fmhosted.com",
+      "id": "6809fbad54a0e973f5f65fb19a4e17bb",
+      "meta": {},
+      "name": "fm2._domainkey.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "fm3.masto.nyc.dkim.fmhosted.com",
+      "id": "20151782e76a9d6c58e4d4ef7a6fb35e",
+      "meta": {},
+      "name": "fm3._domainkey.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "h5bwishfaluhlxmhpn56nri55ct75fh3.dkim.amazonses.com",
+      "id": "90e1be9b6b828d68a56696c2b1f3e30c",
+      "meta": {},
+      "name": "h5bwishfaluhlxmhpn56nri55ct75fh3._domainkey.dev.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "eecbc4eb-e6c3-4f54-83a5-da0b30dee90a.cfargotunnel.com",
+      "id": "7591c8a590ba6f1a3a26d42c11bf3a2c",
+      "meta": {},
+      "name": "large.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "cloud-migration-maintenance.pages.dev",
+      "id": "142edcf9248e94cb3f795ad200cb0a8f",
+      "meta": {},
+      "name": "maintenance.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "37c23069-2c21-413b-917e-3c618d4e05ef.cfargotunnel.com",
+      "id": "cf30df8c23976315ec184757171383d5",
+      "meta": {},
+      "name": "masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "public.r2.dev",
+      "id": "c3916c4854797a67e72f310f9960149a",
+      "meta": {
+        "r2_bucket": "masto-public",
+        "read_only": true
+      },
+      "name": "pubcdn.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "q56ibkui2oylobxcvqyxtz5j4lxghj46.dkim.amazonses.com",
+      "id": "8a995b7f8f01df1592c61b58e5be1c0c",
+      "meta": {},
+      "name": "q56ibkui2oylobxcvqyxtz5j4lxghj46._domainkey.dev.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "ro4pnpjxwm5rwyprzicghojfivyq2ddg.dkim.amazonses.com",
+      "id": "1c8190e926cb0145f8ae1c0c58afee78",
+      "meta": {},
+      "name": "ro4pnpjxwm5rwyprzicghojfivyq2ddg._domainkey.dev.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "s1.domainkey.u29926284.wl035.sendgrid.net",
+      "id": "4e7bb64ff0edb671b3d3821ec214677f",
+      "meta": {},
+      "name": "s1._domainkey.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "s2.domainkey.u29926284.wl035.sendgrid.net",
+      "id": "f798470754a2e265422046ee6f6cd19f",
+      "meta": {},
+      "name": "s2._domainkey.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "1c39cca4-873a-4678-b614-450fda9f81a9.cfargotunnel.com",
+      "id": "fb897f2d902a6b2d848ad3d82f46b98c",
+      "meta": {},
+      "name": "small.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "statuspage.betteruptime.com",
+      "id": "9e2da994e2c2885f038305468a53d304",
+      "meta": {},
+      "name": "status.masto.nyc",
+      "proxiable": true,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "37c23069-2c21-413b-917e-3c618d4e05ef.cfargotunnel.com",
+      "id": "d38544a748bcf60e2c65a420f3023ddc",
+      "meta": {},
+      "name": "streaming.masto.nyc",
+      "proxiable": true,
+      "proxied": true,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "xcnqgobu2kyz2dn5ovr5pywnd4d4yldz.dkim.amazonses.com",
+      "id": "74441f885d48e066bc57fec00fe15897",
+      "meta": {},
+      "name": "xcnqgobu2kyz2dn5ovr5pywnd4d4yldz._domainkey.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {
+        "flatten_cname": false
+      },
+      "tags": [],
+      "ttl": 1,
+      "type": "CNAME"
+    },
+    {
+      "comment": null,
+      "content": "in2-smtp.messagingengine.com",
+      "id": "4e5fafa417e1310f17f943f338de8878",
+      "meta": {},
+      "name": "masto.nyc",
+      "priority": 20,
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 1,
+      "type": "MX"
+    },
+    {
+      "comment": null,
+      "content": "in1-smtp.messagingengine.com",
+      "id": "644adc68a75e657e6701aaec2ca2c54c",
+      "meta": {},
+      "name": "masto.nyc",
+      "priority": 10,
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 1,
+      "type": "MX"
+    },
+    {
+      "comment": null,
+      "content": "\"v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiweykoi+o48IOGuP7GR3X0MOExCUDY/BCRHoWBnh3rChl7WhdyCxW3jgq1daEjPPqoi7sJvdg5hEQVsgVRQP4DcnQDVjGMbASQtrY4WmB1VebF+RPJB2ECPsEDTpeiI5ZyUAwJaVX7r6bznU67g7LvFq35yIo4sdlmtZGV+i0H4cpYH9+3JJ78k\" \"m4KXwaf9xUJCWF6nxeD+qG6Fyruw1Qlbds2r85U9dkNDVAS3gioCvELryh1TxKGiVTkg4wqHTyHfWsp7KD3WQHYJn0RyfJJu6YEmL77zonn7p2SRMvTMP3ZEXibnC9gz3nnhR6wcYL8Q7zXypKTMD58bTixDSJwIDAQAB\"",
+      "id": "851c7a041a0e29fabc47173a8ab703ae",
+      "meta": {
+        "email_routing": true,
+        "read_only": true
+      },
+      "name": "cf2024-1._domainkey.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 1,
+      "type": "TXT"
+    },
+    {
+      "comment": null,
+      "content": "\"v=DMARC1; p=none; rua=mailto:dmarc@masto.nyc\"",
+      "id": "5c85313d61cc81bcf4bd08a563d4551b",
+      "meta": {},
+      "name": "_dmarc.masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 1,
+      "type": "TXT"
+    },
+    {
+      "comment": null,
+      "content": "\"google-site-verification=P4Dujljlj3xgeXNt4gYyk4PxUAXr8lheXnuWA4xO9kM\"",
+      "id": "828a84aa9fe3c6917ce3413af7c59ff0",
+      "meta": {},
+      "name": "masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 3600,
+      "type": "TXT"
+    },
+    {
+      "comment": null,
+      "content": "\"v=spf1 include:spf.messagingengine.com ?all\"",
+      "id": "c6dd8427a2e97f06b62f59af7eaa1b4a",
+      "meta": {},
+      "name": "masto.nyc",
+      "proxiable": false,
+      "proxied": false,
+      "settings": {},
+      "tags": [],
+      "ttl": 1,
+      "type": "TXT"
+    }
+  ]
+}

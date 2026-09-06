@@ -1,0 +1,66 @@
+# Records the Cloudflare configuration in git.
+#
+# Cloudflare keeps no change log worth reading, so a setting that gets flipped in
+# the dashboard leaves no trace. Committing a snapshot makes the git history that
+# log, and a diff on a scheduled run is the drift alert.
+#
+# Read-only throughout. This never writes to Cloudflare and holds a token that
+# cannot, which is the point: the value here is being able to see the
+# configuration, not to manage it.
+#
+# The snapshot is also what an AI review reads. Ask it to look at
+# cloudflare/snapshot/ and say what is wrong.
+name: Cloudflare snapshot
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Snapshot
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "::notice::No Cloudflare token configured. Nothing snapshotted."
+            exit 0
+          fi
+          ./scripts/cloudflare-snapshot.py
+
+      - name: Commit anything that changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- cloudflare/; then
+            echo "No change since the last snapshot." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "### Cloudflare configuration changed"
+            echo
+            echo '```diff'
+            git diff --stat -- cloudflare/
+            echo '```'
+            echo
+            echo "Nothing here changed it. Somebody edited the dashboard, or"
+            echo "Cloudflare changed something on their side."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cloudflare/
+          git commit -m "cloudflare: snapshot $(date -u +%Y-%m-%d)
+
+          Recorded by the scheduled snapshot. Nothing in this repository caused
+          it, so the change came from the dashboard or from Cloudflare."
+          git push
