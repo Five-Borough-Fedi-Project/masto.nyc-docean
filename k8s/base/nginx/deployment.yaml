@@ -20,12 +20,21 @@ spec:
       containers:
         - name: mastodon-nginx
           securityContext:
-            # NET_BIND_SERVICE is kept because this listens on 80. Dropping every
-            # capability would leave it unable to bind the port it exists to serve.
+            # The official nginx image starts as root, chowns its temp
+            # directories to uid 101 and then runs its workers as that user, so
+            # it needs four capabilities rather than the one that is obvious:
+            #
+            #   NET_BIND_SERVICE  listen on 80
+            #   CHOWN             chown /tmp/client_temp and friends to 101
+            #   SETUID, SETGID    drop the workers to that user
+            #
+            # Dropping everything but NET_BIND_SERVICE crashlooped both clusters
+            # on 2026-09-06 with:
+            #   chown("/tmp/client_temp", 101) failed (1: Operation not permitted)
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-              add: [NET_BIND_SERVICE]
+              add: [NET_BIND_SERVICE, CHOWN, SETUID, SETGID]
           # Sized from measurement, 2026-09-05: 2Mi idle on do-production,
           # 129Mi on large where it serves real traffic and fills proxy_cache.
           # Without a request this pod is BestEffort, which makes the proxy
