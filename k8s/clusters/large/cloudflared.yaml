@@ -29,6 +29,10 @@ spec:
           value: "0           200000000"
       containers:
       - name: cloudflared-large
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
         # 29-41Mi measured 2026-09-05. A request moves this out of BestEffort:
         # the tunnel is the only path inbound traffic has, so it should not be
         # first in the eviction queue.

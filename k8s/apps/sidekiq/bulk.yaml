@@ -64,7 +64,9 @@ spec:
             limits:
               memory: "1100Mi"
           securityContext:
-            {}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           image: "ghcr.io/mastodon/mastodon:v4.7.0"
           imagePullPolicy: IfNotPresent
           command:

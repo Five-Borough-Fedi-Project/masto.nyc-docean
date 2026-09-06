@@ -19,6 +19,13 @@ spec:
             name: masto-nginx-config-prd
       containers:
         - name: mastodon-nginx
+          securityContext:
+            # NET_BIND_SERVICE is kept because this listens on 80. Dropping every
+            # capability would leave it unable to bind the port it exists to serve.
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [NET_BIND_SERVICE]
           # Sized from measurement, 2026-09-05: 2Mi idle on do-production,
           # 129Mi on large where it serves real traffic and fills proxy_cache.
           # Without a request this pod is BestEffort, which makes the proxy
