@@ -2,8 +2,8 @@ data "digitalocean_kubernetes_versions" "mastodon" {}
 
 # Careful with changes here. It will probably drop the whole cluster
 resource "digitalocean_kubernetes_cluster" "mastodon_k8s" {
-  name   = "mastodon-k8s-production"
-  region = var.region
+  name         = "mastodon-k8s-production"
+  region       = var.region
   auto_upgrade = true
   # Grab the latest version slug from `doctl kubernetes options versions`
   version = "1.32.10-do.2"
