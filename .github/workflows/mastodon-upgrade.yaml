@@ -67,7 +67,7 @@ jobs:
             echo "  ghcr.io/${repo}:${VERSION} exists"
           done
 
-      - name: Bump both overlays and prove they still build
+      - name: Bump the overlays and the migration jobs, and prove they build
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -75,6 +75,9 @@ jobs:
           python3 - <<'PY'
           import os, re, pathlib
           v = os.environ["VERSION"]
+          # Job names cannot contain dots.
+          slug = v.replace(".", "-")
+
           for f in ("k8s/clusters/do-production/kustomization.yaml",
                     "k8s/clusters/large/kustomization.yaml"):
               p = pathlib.Path(f)
@@ -83,12 +86,48 @@ jobs:
                          lambda m: m.group(1) + v, s)
               p.write_text(s)
               print("  bumped", f)
+
+          # Job specs are immutable, so an upgrade needs a new name rather than
+          # an edit. Flux prunes the previous one.
+          for phase in ("pre", "post"):
+              p = pathlib.Path("k8s/migrate/%s/job.yaml" % phase)
+              s = p.read_text()
+              s = re.sub(r"(name: mastodon-migrate-%s-)v[\d-]+" % phase,
+                         lambda m: m.group(1) + slug, s)
+              s = re.sub(r'(image: "ghcr\.io/mastodon/mastodon:)v[\d.]+"',
+                         lambda m: m.group(1) + v + '"', s)
+              p.write_text(s)
+              print("  bumped", p)
+
+              # The health check has to name the Job that now exists, or Flux
+              # waits forever on one that was pruned.
+              p = pathlib.Path("flux/do-production/migrate-%s.yaml" % phase)
+              s = p.read_text()
+              s = re.sub(r"(name: mastodon-migrate-%s-)v[\d-]+" % phase,
+                         lambda m: m.group(1) + slug, s)
+              p.write_text(s)
+              print("  bumped", p)
           PY
           git diff --stat
           for cluster in do-production large; do
             kubectl kustomize "k8s/clusters/$cluster" > "/tmp/$cluster.yaml"
           done
-          grep -h 'image: ghcr.io/mastodon' /tmp/do-production.yaml /tmp/large.yaml | sort -u
+          kubectl kustomize k8s/migrate/pre  > /tmp/pre.yaml
+          kubectl kustomize k8s/migrate/post > /tmp/post.yaml
+          grep -h 'image: ghcr.io/mastodon' /tmp/do-production.yaml /tmp/large.yaml /tmp/pre.yaml /tmp/post.yaml | sort -u
+          grep -h 'name: mastodon-migrate' /tmp/pre.yaml /tmp/post.yaml
+
+          # A health check naming a Job that does not exist makes Flux wait
+          # until it times out, so the two have to agree.
+          for phase in pre post; do
+            job=$(awk '/^  name: mastodon-migrate-/{print $2}' "/tmp/$phase.yaml" | head -1)
+            want=$(awk '/name: mastodon-migrate-/{print $NF}' "flux/do-production/migrate-$phase.yaml" | head -1)
+            if [ "$job" != "$want" ]; then
+              echo "::error::migrate-$phase health check names '$want' but the Job is '$job'"
+              exit 1
+            fi
+            echo "  $phase: health check and Job agree on $job"
+          done
 
       - name: Open the pull request
         env:

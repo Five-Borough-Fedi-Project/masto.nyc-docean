@@ -19,6 +19,9 @@ spec:
   wait: false
   dependsOn:
     - name: secrets
+    # The image rollout waits for the pre-deployment migrations. A failed
+    # migration therefore stops the deploy rather than being followed by it.
+    - name: migrate-pre
   sourceRef:
     kind: GitRepository
     name: flux-system

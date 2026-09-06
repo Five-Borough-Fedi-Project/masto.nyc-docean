@@ -1,0 +1,11 @@
+# Pre-deployment migrations, run before the deployments move to the new image
+# while the old version is still serving. Backwards compatible by design, which
+# is what makes the rollout low-downtime.
+#
+# do-production only. Both clusters share one Postgres, so this must run in
+# exactly one place.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - job.yaml
