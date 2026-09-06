@@ -41,6 +41,29 @@ Migrations run on do-production only. Both clusters share one Postgres, and
 `large` serves the web tier, so it picks up the new image without running
 anything against the database.
 
+## How to tell which kind of upgrade this is
+
+Mastodon marks non-routine upgrades in an `Upgrade overview` section at the top
+of the release notes, using a fixed vocabulary. Across the last 60 releases only
+four markers appear:
+
+| marker | times | seen on |
+|---|---|---|
+| Requires assets recompilation | 29 | mostly patches |
+| Requires streaming server restart | 3 | v4.7.0, v4.6.0, v4.5.0 |
+| Requires database migrations | 2 | v4.6.0, v4.5.0 |
+| Requires unusually long database migrations | 1 | v4.7.0 |
+
+Two things follow. Database markers have only ever appeared on `.0` releases, so
+the version number is a decent proxy. And assets recompilation, which is most of
+what the marker vocabulary is used for, does not apply here at all: these are
+upstream prebuilt images with assets already compiled.
+
+The upgrade workflow reads this and classifies the release as `routine`,
+`migrations` or `long`, which lands in the pull request body. Trust the marker
+over the version number. The proxy has held for three years and is still a
+proxy.
+
 ## When to ignore all that
 
 The steps below exist because the v4.7.0 upgrade needed them. It found twenty
@@ -48,8 +71,9 @@ post-deployment migrations spanning three years that had never run, deadlocked
 against an open DBeaver session, and offered a `VERSION=` flag that would have
 migrated backwards. None of that is work a Kustomization ordering handles.
 
-Use the manual path for a major version, for anything where the release notes
-mention a long migration, or when the migration-status check is not green.
+Use the manual path when the workflow classifies the release as `long`, or when
+the migration-status check is not green. `migrations` is what the Flux ordering
+was built for and needs no special handling.
 
 ## Before the window
 
