@@ -1,0 +1,13 @@
+# kube-state-metrics, in kube-system.
+#
+# It currently has no consumer. Vector scraped it until 2026-09-05, and it stays
+# because whatever replaces that pipeline will want it and removing it would
+# only have to be undone. See docs/logging-teardown.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - service-account.yaml
+  - cluster-role.yaml
+  - cluster-role-binding.yaml
+  - deployment.yaml
+  - service.yaml

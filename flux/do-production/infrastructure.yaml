@@ -1,0 +1,26 @@
+# metrics-server and kube-state-metrics, which were applied by hand until
+# 2026-09-06 and were the last manifests in the repository outside GitOps.
+#
+# Separate from `apps` rather than folded into it. They have different blast
+# radii: apps prunes the mastodon namespace, this prunes objects in kube-system,
+# and a mistake in the second one takes `kubectl top` and the metrics API with
+# it. Keeping them apart means suspending one does not suspend the other.
+#
+# No dependsOn. Neither component reads a Secret, so there is nothing to wait
+# for, and gating them behind `secrets` would mean a decryption failure also
+# takes out the metrics API.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 30m
+  retryInterval: 5m
+  timeout: 3m
+  path: ./k8s/infrastructure
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

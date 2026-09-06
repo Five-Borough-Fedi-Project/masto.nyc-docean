@@ -6,7 +6,8 @@
 #
 # Not referenced on purpose:
 #   ../../migrate            one-shot Jobs a human runs during an upgrade
-#   ../../infrastructure     targets kube-system, not mastodon
+#   ../../infrastructure     targets kube-system; Flux reconciles it through
+#                            flux/do-production/infrastructure.yaml instead
 #   ../../secrets            gitignored private files, applied by hand until SOPS
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

@@ -1,0 +1,12 @@
+# Cluster components that live in kube-system rather than the mastodon
+# namespace, so they sit outside the per-cluster overlays.
+#
+# do-production only. large gets its metrics-server from k3s
+# (rancher/mirrored-metrics-server) and has no kube-state-metrics, so pointing
+# Flux at this path there would install a second metrics-server and fight the
+# one already answering the metrics.k8s.io APIService.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - metrics-server
+  - monitoring
