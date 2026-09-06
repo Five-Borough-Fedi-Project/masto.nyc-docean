@@ -63,6 +63,13 @@ Phase 8 is the only one outstanding. Everything above it landed between
   containers set `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false` or
   drop capabilities, and 3 set `runAsNonRoot`. This was on the original review
   list and has never been touched.
+- **Issue #11, Cloudflare under Terraform.** The provider is declared and
+  `cloudflare.tf` holds the variables, so nothing is left but a read-only token
+  and an inventory to write `import` blocks against. The zone carries load
+  balancing, health checks, DNS, tunnel routes and the cache, none of it in
+  version control. Scope the token once for everything that needs it: Zone:Read,
+  DNS:Read, Load Balancing:Read, Account Notifications:Read, and Zone Cache
+  Purge for the upgrade purge.
 - **Cloudflare fails the `large` pool over silently.** Health checks pull the
   pool and say nothing, so half the capacity can be gone indefinitely without a
   signal. A `load_balancing_health_alert` notification policy fixes it, and
