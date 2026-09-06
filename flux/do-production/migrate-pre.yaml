@@ -1,0 +1,35 @@
+# Pre-deployment migrations, gated ahead of the image rollout.
+#
+# healthChecks makes Flux wait for the Job to complete rather than only for it
+# to be created. kstatus maps batch/Job to jobConditions, so a Job that is still
+# running holds this Kustomization not-ready, and `apps` waits behind it.
+#
+# The failure mode is the one worth having. A migration that fails leaves this
+# not-ready, `apps` never advances, and the site keeps serving the old image
+# against the schema it was written for.
+#
+# Job names carry the version and Job specs are immutable, so an upgrade means a
+# new name. prune removes the previous one.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: migrate-pre
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 2m
+  # Long enough for a real migration. The v4.7.0 run took most of an hour.
+  timeout: 90m
+  path: ./k8s/migrate/pre
+  prune: true
+  wait: true
+  dependsOn:
+    - name: secrets
+  healthChecks:
+    - apiVersion: batch/v1
+      kind: Job
+      name: mastodon-migrate-pre-v4-7-0
+      namespace: mastodon
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

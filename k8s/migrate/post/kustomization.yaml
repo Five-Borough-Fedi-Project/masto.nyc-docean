@@ -1,0 +1,8 @@
+# Post-deployment migrations, run after the deployments are on the new image.
+#
+# do-production only, for the same reason as pre.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mastodon
+resources:
+  - job.yaml

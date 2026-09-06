@@ -10,6 +10,47 @@ minutes, and every deployment this runbook scales declares `replicas: 1` in
 git. An unsuspended Flux will scale the site back up while the database is half
 migrated. Step 6a is not optional.
 
+## The routine path
+
+Flux runs the migrations in order, so a patch release needs no drain and no
+kubectl:
+
+    secrets -> migrate-pre -> apps -> migrate-post
+
+Run **Mastodon upgrade PR** from the Actions tab with the target version. It
+bumps both cluster overlays, renames both migration Jobs to the new version,
+points the health checks at them, and opens a pull request. Merging is the
+approval.
+
+Flux then creates the pre-deployment Job and waits for it to finish before
+moving the deployments to the new image, because `apps` declares
+`dependsOn: migrate-pre` and that Kustomization health-checks the Job. A
+migration that fails leaves `apps` where it is, so the site keeps serving the
+old image against the schema it was written for.
+
+For a second gate between the migration and the deploy, suspend `apps` before
+merging and resume it once you have read the Job's output:
+
+```sh
+flux --context=do suspend kustomization apps
+kubectl --context=do -n mastodon logs -l app.kubernetes.io/component=migrate --tail=50
+flux --context=do resume kustomization apps
+```
+
+Migrations run on do-production only. Both clusters share one Postgres, and
+`large` serves the web tier, so it picks up the new image without running
+anything against the database.
+
+## When to ignore all that
+
+The steps below exist because the v4.7.0 upgrade needed them. It found twenty
+post-deployment migrations spanning three years that had never run, deadlocked
+against an open DBeaver session, and offered a `VERSION=` flag that would have
+migrated backwards. None of that is work a Kustomization ordering handles.
+
+Use the manual path for a major version, for anything where the release notes
+mention a long migration, or when the migration-status check is not green.
+
 ## Before the window
 
 1. **Check the migration backlog.** Post-deployment migrations went unapplied
