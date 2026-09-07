@@ -46,7 +46,7 @@ spec:
               cpu: "50m"
             limits:
               memory: "384Mi"
-          image: nginx:1.30.3-alpine3.23-slim
+          image: nginx:1.31.2-alpine3.23-slim@sha256:dd722b8ee8794f3c273bfaf8b5351b0652a68ccd73c17e5f0d029857a58f25ef
           ports:
           - containerPort: 80
             name: http

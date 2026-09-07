@@ -19,7 +19,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: [ALL]
-        image: docker.io/libretranslate/libretranslate:v1.6.0
+        image: docker.io/libretranslate/libretranslate:v1.9.6@sha256:1de2d7056bb8ad607a412f4563d9abe324ff632b43b5be9428bcc8e213aebb32
         # Sized from measurement, 2026-09-05: 186Mi and 1m on do-production.
         # The limit is deliberately loose because LT_UPDATE_MODELS pulls
         # language models at startup and that is the memory peak, not steady
