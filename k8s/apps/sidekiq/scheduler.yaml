@@ -52,12 +52,15 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 10
+          # Sized for -c 5. At -c 25 this pod sat at 573Mi against a 900Mi
+          # limit for a queue of periodic jobs; five threads need a fraction of
+          # that, and the reservation was competing for space on 3Gi nodes.
           resources:
             requests:
-              memory: "500Mi"
+              memory: "300Mi"
               cpu: "100m"
             limits:
-              memory: "900Mi"
+              memory: "600Mi"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

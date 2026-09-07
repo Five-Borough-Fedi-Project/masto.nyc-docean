@@ -57,24 +57,28 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 10
-          # Raised 2026-09-07, with the move to mastodon-large. This pod was
-          # OOMKilled on 2026-09-06 at 16:34 after five and a half hours against
-          # the old 1100Mi, and sidekiq-realtime sat at 735Mi against the same
-          # ceiling. An OOMKill here is not free: plain Sidekiq has no
-          # super_fetch, so whatever the 25 threads were holding is lost rather
-          # than requeued.
+          # Raised 2026-09-07. This pod was OOMKilled on 2026-09-06 at 16:34,
+          # after five and a half hours against the old 1100Mi ceiling, and
+          # sidekiq-realtime sat at 735Mi against the same one. An OOMKill here
+          # is not free: plain Sidekiq has no super_fetch, so whatever the 25
+          # threads were holding is lost instead of requeued.
           #
           # mastodon-web argues, in its own manifest, that a limit guessed below
           # the real peak OOMKills the tier it was meant to protect. That was
-          # right, and it was not applied here. The peak is still unrecorded, so
-          # this is a ceiling well clear of anything observed instead of a
-          # measurement. The nodes are 31Gi and run under a third full.
+          # right and it was not applied here. The peak is still unrecorded, so
+          # 1500Mi is headroom over anything observed rather than a measurement.
+          #
+          # It stays a limit, unlike web's, because these nodes are 3Gi and this
+          # pod shares one with the web tier. Sidekiq carries no priority class
+          # and web carries masto-critical, so under node pressure this is the
+          # one that goes, which is the right order. The request is unchanged:
+          # raising it would only make this pod harder to schedule.
           resources:
             requests:
-              memory: "1Gi"
+              memory: "700Mi"
               cpu: "200m"
             limits:
-              memory: "2Gi"
+              memory: "1500Mi"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

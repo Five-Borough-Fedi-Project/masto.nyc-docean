@@ -143,22 +143,27 @@ has now been killed by it.
 An OOMKilled Sidekiq loses its in-flight jobs, so this is not free: plain Sidekiq
 has no super_fetch, and whatever the 25 threads were holding goes with them.
 
-Resolved by moving Sidekiq to mastodon-large and raising the ceilings to 2Gi.
-The DO nodes carry 3Gi of allocatable memory each and were running at 93, 75 and
-56 percent; the bare-metal nodes are 31Gi each at under a third. The limits are
-still guesses, and now they are guesses with room above anything observed.
+Resolved by raising the ceiling to 1500Mi. The request is unchanged, because
+raising it would only make the pod harder to place on a 3Gi node.
 
-The database path was the thing to check first, and it is not a cost. TCP
-connect to Postgres, 15 samples on 2026-09-07: **8.6ms p50 from mastodon-large
-against 10.7ms from do-production**. The web tier already runs there and cares
-more about latency than a job queue does.
+**Not resolved by moving Sidekiq to mastodon-large, which was the first
+attempt.** That cluster has the memory, and the database path from it is
+genuinely cheaper: TCP connect to Postgres, 15 samples on 2026-09-07, 8.6ms p50
+from large against 10.7ms from do-production. Both true, and both beside the
+point. It is the unreliable cluster, and moving Sidekiq there would have left
+do-production unable to run it at all. Federation stops without Sidekiq.
 
-The trade is availability. If the bare-metal cluster is unreachable, Sidekiq
-stops, and unlike the web tier there is no second pool to take over. Nothing is
-lost, because the queues live in Redis under `noeviction`, but they grow: Redis
-peaked at 238MB of 418MB, so a backlog has roughly 180MB before writes start
-failing. That is the number to watch during a long outage, and it is the
-strongest argument for the Redis alert in Tier 3.
+The rule that came out of it, now recorded in the large kustomization: a
+workload belongs on mastodon-large when it is not critical **and** do-production
+can carry it alone while large is down. The web tier passes because there are two
+pools and a load balancer. Sidekiq, as a straight move, fails on both counts.
+
+There is a version that passes, worth considering separately: Sidekiq workers are
+stateless consumers of a shared Redis, so replicas on large would be additional
+capacity instead of a relocation, and do-production would keep running at
+reduced throughput if large vanished. The scheduler could not participate, since
+Mastodon requires exactly one scheduler process. That is an architecture change
+and it needs a decision, so it is not in this plan.
 
 ### Load balancer notifications
 
@@ -228,11 +233,23 @@ means filling the instance fails writes instead of degrading, so the headroom is
 the safety margin. The right response is an alert on used memory; the setting
 itself should stay.
 
-### 8,007 dead Sidekiq jobs
+### 8,007 dead Sidekiq jobs — read, and they answered issue #10
 
-Against 409 million processed and 7.2 million failed, a 1.76% failure rate. Much
-of that is unreachable remote servers and is normal for federation. The dead set
-is worth reading once to see whether it is all the same failure.
+Against 409 million processed and 7.2 million failed, a 1.76% failure rate. Most
+of it is what it looks like: `HTTP::TimeoutError` at 41%, `HTTP::ConnectionError`
+at 14% and `OpenSSL::SSL::SSLError` at 9%, against remote instances.
+
+The useful part was `ActiveRecord::ConnectionTimeoutError` at 10.9%, 869 jobs.
+That is the pool exhaustion from issue #10, and dating them settles whether it is
+still happening:
+
+| day | dead | of those, connection timeouts |
+|---|---|---|
+| 2026-08-27 | 416 | **370** |
+| 2026-08-28 to 2026-09-06 | 10 to 44 a day | **0** |
+
+None since 2026-08-27. The `DB_POOL=25` override worked, and this is the
+evidence for it. Issue #10 is answered.
 
 ### Cache measurements after tiered caching
 
