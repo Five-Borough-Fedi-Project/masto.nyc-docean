@@ -54,7 +54,7 @@ jobs:
       deploy_any: ${{ steps.set-matrix.outputs.deploy_any }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Needed to diff against the base or the previous commit.
           fetch-depth: 0
@@ -144,12 +144,12 @@ jobs:
         dockerfile: ${{ fromJson(needs.find-dockerfiles.outputs.matrix) }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Only needed when we are actually going to push.
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -194,7 +194,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Point the manifests at the images this run pushed
         id: bump

@@ -73,11 +73,11 @@ jobs:
       summary: ${{ steps.plan.outputs.summary }}
       has_changes: ${{ steps.plan.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Resolve the mastodon-large origin
         run: ./scripts/resolve-large-ip.sh
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
         with:
           tofu_version: ${{ env.TOFU_VERSION }}
 
@@ -166,7 +166,7 @@ jobs:
 
       - name: Comment the plan on the pull request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require('fs');
@@ -208,11 +208,11 @@ jobs:
       group: opentofu-apply
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Resolve the mastodon-large origin
         run: ./scripts/resolve-large-ip.sh
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
         with:
           tofu_version: ${{ env.TOFU_VERSION }}
       - run: tofu init -input=false
