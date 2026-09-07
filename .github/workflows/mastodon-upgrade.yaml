@@ -104,10 +104,17 @@ jobs:
               exit 0 ;;
           esac
 
-          # A branch with no pull request behind it is leftover, and silently
-          # skipping it would hide the next release indefinitely.
+          # A branch with no pull request behind it is the normal outcome here,
+          # not an anomaly. The organisation forbids Actions from creating pull
+          # requests, so open-pr pushes the branch and prints a compare URL, and
+          # the pull request gets opened by a human afterwards. Calling that
+          # "stale" sent people looking for a problem that is the design.
+          #
+          # It still has to stop, or every daily run would push the same branch
+          # again. So it stops and links the thing that finishes the job.
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            note "Branch ${branch} exists with no pull request. It is stale; delete it and this will run again."
+            note "Branch ${branch} is pushed and has no pull request yet. Open it: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+            note "If ${target} is being skipped on purpose, delete that branch and this stops offering it."
             exit 0
           fi
 
