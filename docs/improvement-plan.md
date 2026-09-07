@@ -13,10 +13,17 @@ Small, evidenced, and none of them need a decision.
 
 ### Cache rule for `/.well-known/*`
 
-**17,295 requests a day reach Rails** on paths Mastodon explicitly marks
+**17,295 requests a day cross the tunnel** on paths Mastodon explicitly marks
 cacheable. Webfinger, host-meta and nodeinfo all return `max-age=259200, public`
 and all report `cf-cache-status: DYNAMIC`, because Cloudflare's default caching
 keys on file extension and these paths have none.
+
+They do not reach Rails. nginx already caches them and answers every one from its
+own store, verified by `X-Cached: HIT` on a cold request for all three paths. So
+the win is the tunnel hop and the round trip to the cluster. Origin CPU was never
+the cost. That is smaller than it first looked, and still worth having: the edge answer is
+closer to the remote instance asking, and it survives a pod restart, which the
+nginx cache does not.
 
 The zone's cache rules ruleset is empty, so there is nothing to conflict with.
 
@@ -37,12 +44,12 @@ previously cached 200 keeps serving for up to three days. That is already true
 of every remote server's cache, since Mastodon asks for it. It means purging
 Cloudflare when deleting an account.
 
-### DNSSEC
+### DNSSEC — done 2026-09-06
 
-Disabled. For a fediverse instance the domain is the identity other servers
+Was disabled. For a fediverse instance the domain is the identity other servers
 trust, and DNSSEC is what stops an answer being forged. One setting, free.
 
-### Minimum TLS version 1.0 to 1.2
+### Minimum TLS version 1.0 to 1.2 — done 2026-09-06
 
 **Zero requests** used TLS 1.0 or 1.1 across 5.6 million in 48 hours, so raising
 the floor costs nothing measurable.
@@ -67,8 +74,9 @@ logging on, at minimum for non-2xx.
 
 ### Remove the sample tunnel ingress rules
 
-The cloudflared config still carries `hello.example.com` routed to
-`hello_world`, from Cloudflare's tutorial. Three lines nobody meant.
+All three tunnel configs still carry `hello.example.com` routed to
+`hello_world`, from Cloudflare's tutorial. Three lines each, nobody meant any of
+them.
 
 ### Page Shield and zone hold
 
@@ -83,32 +91,58 @@ are the edge half of an experiment whose Kubernetes half was removed in #37.
 
 ## Tier 2: worth doing, needs a decision
 
-### The nginx cache does nothing
+### The nginx cache is full and unbounded
 
-Configured with a 10MB keys zone, `max_size=1g` and `proxy_cache_valid 200 7d`.
-**Zero entries on both clusters.** Mastodon returns `max-age=15` with
-`vary: Accept, Accept-Language, Cookie`, so entries are per-user and live fifteen
-seconds. `X-Cached` cycles MISS to EXPIRED and never HIT.
+Configured with a 10MB keys zone and `max_size=1g`, writing to `/tmp`.
 
-Two honest options. Delete the cache directives, which removes dead
-configuration. Or make it work for genuinely anonymous paths with
-`proxy_ignore_headers` and a cache key excluding cookies, which is a real feature
-and also the way one user gets served another user's page if the path list is
-wrong.
+| | entries | on disk |
+|---|---|---|
+| do | 312 | 12 MB |
+| lab | 34,579 | **1.0 GB** |
 
-Deleting is the safe default. Making it work needs a reason.
+lab is at `max_size` exactly, which means it has been evicting for some time.
+`/tmp` is the container's writable layer on node storage, with no volume and no
+`ephemeral-storage` limit, so the ceiling that is actually holding is an nginx
+directive. One replica per cluster and ~98GB free on the smallest lab node, so
+nothing is at risk today; it is worth an `ephemeral-storage` limit above 1GB so
+the kubelet has a number to enforce.
 
-Related: the cache path is `/tmp`, which is the container's writable layer on
-node storage, with no volume and no `ephemeral-storage` limit. It
-is harmless while the cache is empty. Anything that fixed the caching would start
-writing up to 1GB per pod to node disk.
+The cache is doing real work and is keyed correctly. Entries are tag, status and
+account paths; Mastodon sends `vary: Authorization, Origin` on API responses and
+`vary: Cookie` on web ones, and nginx keys on the varying headers, so one user
+cannot be served another's page. `proxy_ignore_headers` is not set, so origin
+`Cache-Control` governs the TTL.
 
-### nginx error pages are broken
+One dead line: `proxy_cache_valid 410 24h` never applies, because Mastodon sends
+an explicit `max-age` on 410 and that takes precedence.
 
-`error_page 404 500 501 502 503 504 /500.html` with `root` commented out. There
-is no filesystem to serve `/500.html` from, so it falls through to the proxy,
-reaches Rails, and 404s. The Cloudflare custom error page hides this for 5xx.
-Either give nginx a root with the file, or remove the directive.
+### Upload limits disagree across three layers
+
+| | limit |
+|---|---|
+| Cloudflare `max_upload` | 100 MB |
+| nginx `client_max_body_size` | **80 MB** |
+| Mastodon `VIDEO_LIMIT` | 99 MB |
+
+A video between 80 and 99 MB is one Mastodon accepts and advertises, and the
+client will offer to upload. nginx rejects it with a 413 before Rails sees it.
+Raise `client_max_body_size` to 100m.
+
+### Sidekiq memory limits are set where web's deliberately are not
+
+`mastodon-sidekiq-bulk` was **OOMKilled on 2026-09-06 at 16:34**, after about
+five and a half hours, against a 1100Mi limit. `realtime` shares that limit and
+currently sits at 735Mi. Both run 25 threads.
+
+`mastodon-web` carries a comment explaining why it has no memory limit: a limit
+guessed below the real peak OOMKills the tier instead of protecting it, and
+nothing here retains the history that would tell you the peak. That reasoning is
+sound and it applies just as well to Sidekiq, which does have a guessed limit and
+has now been killed by it.
+
+An OOMKilled Sidekiq loses its in-flight jobs, so this is not free. Either raise
+the limits with the same honesty the web comment asks for, or drop them and rely
+on the requests and the priority class, as web does.
 
 ### Load balancer notifications
 
@@ -143,8 +177,9 @@ the practical gap is small. Strict is still the stronger setting.
 |---|---|
 | do web, 1 pod | 10 |
 | do sidekiq, 3 pods at 25 | 75 |
+| do streaming, 1 pod | 10 |
 | large web, 2 pods | 20 |
-| **maximum client connections** | **105** |
+| **maximum client connections** | **115** |
 | pgbouncer pool size | 85 |
 | postgres max_connections | 100 |
 
@@ -154,7 +189,8 @@ instead of failing. The headroom is arithmetic, though, and thin.
 
 The cheapest slack is `mastodon-sidekiq-sched`, which runs `-c 25` with
 `DB_POOL=25` to service the scheduler queue alone. That queue runs periodic jobs
-and does not need 25 threads. Dropping it to 5 returns 20 connections.
+and does not need 25 threads. Dropping it to 5 returns 20 connections, and takes
+memory pressure off a pod that sits at 573Mi against a 900Mi limit.
 
 ### Redis has no eviction and 57% peak
 
@@ -209,6 +245,33 @@ for a three minute TTL.
 the configuration and finding problems, and a control plane is the wrong tool for
 that. Issue #11 stays open if that changes.
 
+## Corrections
+
+Four claims in the first draft of this plan were wrong. Recorded because the way
+they were wrong is more useful than the claims were.
+
+**The nginx cache was described as empty on both clusters.** It holds 312 entries
+on do and 34,579 on lab. The measurement was `find /tmp/proxycache -type f` run
+through `kubectl exec`, which returned nothing. The exec shell is uid 0, the cache
+directory is `0700 nginx`, and the container drops all capabilities, so root has
+no `CAP_DAC_OVERRIDE` and the read was refused. Empty output, no error, wrong
+conclusion. Re-run as the `nginx` user it gives the numbers above.
+
+**`error_page` was described as broken.** `/500.html` returns 200 and Mastodon's
+real error page. nginx has no root, so `try_files` falls to the proxy and Rails
+serves the file itself, because `RAILS_SERVE_STATIC_FILES` is true. The directive
+works. It was never tested before being written down.
+
+**`/.well-known/*` was described as reaching Rails 17,295 times a day.** It
+reaches nginx, which answers from cache. The Cloudflare figure counts what
+crosses the tunnel, and the layer below it was not checked.
+
+**The connection table omitted streaming**, which runs one pod at `DB_POOL=10`.
+
+Three of the four are the same mistake: a number from one layer was read as a
+statement about a different layer, or a check that found nothing was read as
+proof that nothing was there.
+
 ## Checked and found fine
 
 Recorded because each of these looked like a problem and was not.
@@ -225,7 +288,6 @@ OpenSearch: 9.7GB of indices on a 2GB node looked undersized. Disk is at 24%,
 heap at 60%, and **zero old-generation garbage collections**, which is the number
 that would show memory pressure. It is healthy.
 
-Sidekiq throughput: every queue empty with zero latency.
 
 Streaming correctly bypasses nginx, which matters because `proxy_buffering on`
 would break server-sent events.
