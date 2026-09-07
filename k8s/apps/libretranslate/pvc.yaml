@@ -1,0 +1,32 @@
+# Argos language models, kept across restarts.
+#
+# Without this LibreTranslate downloads all 100 packages, 9.64GB, onto the
+# container's writable layer at every start, and again after every restart,
+# eviction or node drain. Measured on both clusters 2026-09-07: 10.32GB of
+# ephemeral storage in use and 360s on do-production, 286s on mastodon-large,
+# from start to passing the readiness probe.
+#
+# LT_UPDATE_MODELS stays true. With the volume populated, check_and_install_models
+# still fetches the package index on boot but finds every package already
+# installed at the current version, so it downloads nothing and only picks up
+# genuine upstream updates.
+#
+# No storageClassName, so each cluster uses its own default: do-block-storage on
+# do-production, which is a paid block volume, and local-path on mastodon-large,
+# which is free node disk. local-path binds the volume to one node, so the pod
+# cannot move if that node goes away. That is acceptable for a service that is
+# optional by design, and mastodon-large has an nfs class if it ever stops being.
+#
+# 15Gi against 9.64GB today. Argos adds languages over time and resizing a bound
+# PVC is more work than over-asking once.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: libretranslate-models
+  namespace: mastodon
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
