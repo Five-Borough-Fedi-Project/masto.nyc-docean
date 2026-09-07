@@ -44,8 +44,15 @@ spec:
             requests:
               memory: "192Mi"
               cpu: "50m"
+              # The proxy cache lives in /tmp, which is the container's writable
+              # layer on node storage. nginx caps itself at max_size=1g and is
+              # sitting exactly there on mastodon-large, so this reserves the
+              # gigabyte it actually uses and gives the kubelet a ceiling of its
+              # own a little above it.
+              ephemeral-storage: "1Gi"
             limits:
               memory: "384Mi"
+              ephemeral-storage: "2Gi"
           image: nginx:1.31.2-alpine3.23-slim@sha256:dd722b8ee8794f3c273bfaf8b5351b0652a68ccd73c17e5f0d029857a58f25ef
           ports:
           - containerPort: 80
