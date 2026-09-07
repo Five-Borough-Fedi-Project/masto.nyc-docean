@@ -28,7 +28,7 @@ spec:
   healthChecks:
     - apiVersion: batch/v1
       kind: Job
-      name: mastodon-migrate-post-v4-7-0
+      name: mastodon-migrate-post-v4-7-1
       namespace: mastodon
   sourceRef:
     kind: GitRepository

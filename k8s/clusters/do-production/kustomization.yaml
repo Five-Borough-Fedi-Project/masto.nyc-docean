@@ -25,6 +25,6 @@ resources:
   - cloudflared
 images:
   - name: ghcr.io/mastodon/mastodon
-    newTag: v4.7.0
+    newTag: v4.7.1
   - name: ghcr.io/mastodon/mastodon-streaming
-    newTag: v4.7.0
+    newTag: v4.7.1
