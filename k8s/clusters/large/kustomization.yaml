@@ -9,6 +9,13 @@
 # critical AND do-production can carry it alone while this cluster is down.
 # Sidekiq fails that test: federation stops without it, and moving it here
 # would have left do-production unable to run it at all.
+#
+# LibreTranslate passes. Translation is optional, do-production runs its own
+# copy, and this is a second instance rather than a relocation. It has to be
+# here because the web tier is here: Mastodon dials the Service by cluster-local
+# DNS, and a pod on this cluster cannot reach do-production's ClusterIP. Without
+# a local copy, translation would fail on every request this cluster serves,
+# which is most of them.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: mastodon
@@ -16,6 +23,7 @@ resources:
   - ../../base/priority-classes
   - ../../base/nginx
   - ../../base/mastodon-web
+  - ../../apps/libretranslate
   - cloudflared.yaml
   - cloudflared-config.yaml
   - pdb-web.yaml
