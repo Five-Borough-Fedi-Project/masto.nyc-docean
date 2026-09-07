@@ -4,6 +4,11 @@ metadata:
   name: libretranslate
   namespace: mastodon
 spec:
+  strategy:
+    # The models volume is ReadWriteOnce. A rolling update would want two pods
+    # holding it at once, and the new one would sit Pending until the old one
+    # went away, which it never would.
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: libretranslate
@@ -12,6 +17,11 @@ spec:
       labels:
         app.kubernetes.io/name: libretranslate
     spec:
+      securityContext:
+        # The image runs as uid 1032, gid 65534. A newly provisioned volume
+        # comes up root-owned, so without this the models directory is
+        # unwritable and the first boot fails.
+        fsGroup: 65534
       priorityClassName: masto-low
       containers:
       - name: libretranslate
@@ -31,6 +41,9 @@ spec:
             cpu: "10m"
           limits:
             memory: "768Mi"
+        volumeMounts:
+        - name: models
+          mountPath: /home/libretranslate/.local/share/argos-translate
         ports:
         - containerPort: 5000
         # Measured 2026-09-05: a cold request took over 10 seconds and under 30,
@@ -58,3 +71,7 @@ spec:
           value: "true"
         - name: "LT_SSL"
           value: "False"
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: libretranslate-models
