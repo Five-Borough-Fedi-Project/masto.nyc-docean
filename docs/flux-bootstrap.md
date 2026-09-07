@@ -162,6 +162,49 @@ managed by DigitalOcean and none are under Flux, so they are unaffected.
 Both clusters otherwise reconciled to no changes, which is the boring result you
 want from a first bootstrap.
 
+## A defaulted field can block every Kustomization at once
+
+On 2026-09-07 both clusters stopped reconciling entirely. The error named one
+Deployment:
+
+    Deployment/mastodon/libretranslate dry-run failed (Invalid):
+    spec.strategy.rollingUpdate: Forbidden: may not be specified
+    when strategy `type` is 'Recreate'
+
+The change was adding `strategy: {type: Recreate}` to a Deployment that had been
+running the default `RollingUpdate`. The API server had defaulted
+`spec.strategy.rollingUpdate` on the live object years ago. Nothing in the
+manifest mentions that field, so nothing removed it, and the merged result was a
+Deployment that set `Recreate` while still carrying `rollingUpdate` — which the
+API server rejects.
+
+Two things worth taking from it.
+
+`kubectl apply --dry-run=server` did not catch this. It was run against both
+clusters before the change was merged and reported `configured` for that
+Deployment, because kubectl's three-way merge removes fields absent from the new
+manifest and Flux's apply did not. This is the same gap as the section above, in
+a different shape: the local check and the thing that will actually run disagree,
+and the local check is the optimistic one.
+
+**The whole Kustomization stops, so one bad object takes everything with it.**
+`apps` went not-ready on both clusters, `migrate-pre` and `migrate-post` went
+not-ready behind it, and nothing else in the namespace was reconciling for as
+long as it took to notice. The blast radius of an invalid manifest is not the
+object it names.
+
+The fix is to bring the live object in line first, then let Flux apply:
+
+```sh
+kubectl --context=do -n mastodon patch deploy libretranslate --type=json -p \
+  '[{"op":"remove","path":"/spec/strategy/rollingUpdate"},
+    {"op":"replace","path":"/spec/strategy/type","value":"Recreate"}]'
+```
+
+One atomic patch, because removing the field and changing the type in two steps
+leaves an invalid object in between. Deleting the Deployment and letting Flux
+recreate it works too and costs an outage of whatever it runs.
+
 ## Checking on it
 
 ```sh
