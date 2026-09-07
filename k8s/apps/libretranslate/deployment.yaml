@@ -29,8 +29,15 @@ spec:
           requests:
             memory: "256Mi"
             cpu: "10m"
+            # The models land on the container's writable layer, which is node
+            # disk. 3.24GB of packages under LT_LOAD_ONLY, so this reserves what
+            # it actually takes and gives the kubelet a ceiling. Before this the
+            # pod asked for no disk at all while using 10.32GB of it, which the
+            # scheduler had no way to know.
+            ephemeral-storage: "4Gi"
           limits:
             memory: "768Mi"
+            ephemeral-storage: "6Gi"
         ports:
         - containerPort: 5000
         # Measured 2026-09-05: a cold request took over 10 seconds and under 30,
@@ -54,6 +61,26 @@ spec:
           value: "0.0.0.0"
         - name: "LT_UPDATE_MODELS"
           value: "true"
+        # Without this it installs all 100 Argos packages, 9.64GB, onto the
+        # container's writable layer, and does it again on every restart because
+        # nothing persists them. Measured on both clusters 2026-09-07.
+        #
+        # LT_LOAD_ONLY filters the package list before the download loop rather
+        # than after, so this is a real saving and not just fewer models loaded:
+        # 30 packages and 3.24GB, a 66% cut, still measured rather than guessed.
+        #
+        # The set comes from what the instance actually sees. Over 2,055,081
+        # statuses in 30 days: en 63%, de 2.4%, fr 0.8%, es 0.6%, nl 0.4%,
+        # ar 0.4%, zh 0.4%, it 0.3%, pt 0.2%, sv 0.2%, pl 0.2%, ja 0.1%,
+        # ru 0.1%. ko and vi are here for local users' interface locales rather
+        # than for post volume. Everything omitted was under 0.1%.
+        #
+        # These are Argos model codes, not the ISO codes Mastodon sends. `zh` is
+        # Simplified Chinese here and is what /languages reports as zh-Hans. A
+        # code that does not exist raises ValueError and the container will not
+        # boot, so check against the package directory before editing.
+        - name: "LT_LOAD_ONLY"
+          value: "en,de,fr,es,nl,ar,zh,it,pt,ru,ja,pl,sv,vi,ko"
         - name: "LT_DISABLE_WEB_UI"
           value: "true"
         - name: "LT_SSL"
