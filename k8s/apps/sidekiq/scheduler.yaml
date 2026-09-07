@@ -52,12 +52,15 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 10
+          # Sized for -c 5. At -c 25 this pod sat at 573Mi against a 900Mi
+          # limit for a queue of periodic jobs; five threads need a fraction of
+          # that, and the reservation was competing for space on 3Gi nodes.
           resources:
             requests:
-              memory: "500Mi"
+              memory: "300Mi"
               cpu: "100m"
             limits:
-              memory: "900Mi"
+              memory: "600Mi"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -68,8 +71,13 @@ spec:
             - bundle
             - exec
             - sidekiq
+            # The scheduler queue runs Mastodon's periodic jobs and nothing
+            # else, a handful at a time on a cron. 25 threads was inherited from
+            # the other two deployments, where it makes sense. It cost 20 of the
+            # database connections counted in docs/improvement-plan.md and it
+            # bought nothing.
             - -c
-            - "25"
+            - "5"
             - -q
             - "scheduler"
           envFrom:
@@ -78,7 +86,6 @@ spec:
           - secretRef:
               name: mastodon-env-tf
           env:
-            # Match DB_POOL to sidekiq concurrency. mastodon-env-secret sets 10
-            # globally against -c 25, so threads block on connection checkout.
+            # Match DB_POOL to sidekiq concurrency, which is -c 5 here.
             - name: DB_POOL
-              value: "25"
+              value: "5"

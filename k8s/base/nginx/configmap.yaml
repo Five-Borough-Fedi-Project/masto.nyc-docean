@@ -7,7 +7,9 @@ data:
   nginx.conf: |
     pid        /tmp/nginx.pid;
     events {}
-    error_log /dev/null;
+    # Was /dev/null at both levels. vector shipped these to BetterStack and
+    # vector is gone, so a 502 left nothing anywhere in the stack to read.
+    error_log /dev/stderr warn;
     http 
     {
       client_body_temp_path /tmp/client_temp;
@@ -16,8 +18,29 @@ data:
       uwsgi_temp_path       /tmp/uwsgi_temp;
       scgi_temp_path        /tmp/scgi_temp;
 
-      access_log /dev/null;
+      # Non-2xx only. This proxy carries every request to the site and the
+      # cache serves a good share of them; a full access log is volume nobody
+      # is currently collecting.
+      map $status $loggable {
+        ~^[23]  0;
+        default 1;
+      }
+      log_format  main '$remote_addr $request_method $request_uri $status '
+                       '$body_bytes_sent $request_time $upstream_cache_status';
+      access_log /dev/stdout main if=$loggable;
 
+      # This cache is doing real work: 34,579 entries and a full 1.0GB on
+      # mastodon-large, 312 on do-production, measured 2026-09-07. It is keyed
+      # safely, because Mastodon sends vary: Authorization on API responses and
+      # vary: Cookie on web ones and nginx keys on the varying headers.
+      #
+      # Reading it needs `su nginx`. The directory is 0700 nginx and the
+      # container drops all capabilities, so a root shell has no CAP_DAC_OVERRIDE
+      # and find returns nothing at all, with no error.
+      #
+      # max_size is the only thing bounding it: /tmp is the container's writable
+      # layer on node storage. The pod carries an ephemeral-storage limit above
+      # this so the kubelet has a number of its own to enforce.
       proxy_cache_path /tmp/proxycache levels=1:2 keys_zone=CACHE:10m inactive=7d max_size=1g;
 
       map $http_upgrade $connection_upgrade {
@@ -31,8 +54,16 @@ data:
         server_name masto.nyc;
 
         keepalive_timeout    70;
+        # The zone's proxy_read_timeout is 125. nginx defaults to 60, so a slow
+        # request was cut here while the edge was still waiting and the client
+        # got a 504 that did not come from Cloudflare.
+        proxy_read_timeout   125s;
+        proxy_send_timeout   125s;
         sendfile             on;
-        client_max_body_size 80m;
+        # Mastodon's VIDEO_LIMIT is 99MB and Cloudflare's max_upload is 100MB.
+        # At 80m this was the lowest ceiling in the chain, so a video Mastodon
+        # advertises as acceptable got a 413 from here before Rails saw it.
+        client_max_body_size 100m;
 
         #root /home/mastodon/live/public;
 
@@ -66,7 +97,6 @@ data:
           proxy_set_header Upgrade $http_upgrade;
           proxy_cache CACHE;
           proxy_cache_valid 200 7d;
-          proxy_cache_valid 410 24h;
           proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
           add_header X-Cached $upstream_cache_status;
           tcp_nodelay on;
@@ -88,7 +118,6 @@ data:
 
           proxy_cache CACHE;
           proxy_cache_valid 200 7d;
-          proxy_cache_valid 410 24h;
           proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
           add_header X-Cached $upstream_cache_status;
 

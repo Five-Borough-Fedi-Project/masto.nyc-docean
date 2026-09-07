@@ -3,6 +3,12 @@
 #
 # Runs the web tier and its own tunnel. Everything else, streaming, sidekiq and
 # the cronjobs, stays on do-production.
+#
+# This cluster has memory to spare and is not reliable enough to be the only
+# home for anything that matters. A workload belongs here when it is not
+# critical AND do-production can carry it alone while this cluster is down.
+# Sidekiq fails that test: federation stops without it, and moving it here
+# would have left do-production unable to run it at all.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: mastodon
