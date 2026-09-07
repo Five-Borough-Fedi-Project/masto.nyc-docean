@@ -48,7 +48,7 @@ jobs:
     outputs:
       version: ${{ steps.pick.outputs.version }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Pick the target version
         id: pick
@@ -126,7 +126,7 @@ jobs:
     if: needs.detect.outputs.version != ''
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Check the tag looks like a version and is not what we already run
         id: check
