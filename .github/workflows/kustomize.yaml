@@ -53,6 +53,17 @@ jobs:
   # kube-system components, reconciled by flux/do-production/infrastructure.yaml
   # rather than by a cluster overlay. A separate job so the existing per-cluster
   # check names stay as they are.
+  # The upgrade workflow decides which Mastodon version to move to, and it runs
+  # unattended on a schedule. Getting that choice wrong opens a pull request
+  # that skips a minor, so the policy is worth a test rather than a read.
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version picker
+        run: python3 scripts/tests/test_next_mastodon_version.py
+
   infrastructure:
     runs-on: ubuntu-latest
     steps:
