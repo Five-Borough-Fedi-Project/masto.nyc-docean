@@ -114,12 +114,23 @@ def main():
         "zone": [
             ("settings", "zones/%s/settings" % zid),
             ("workers_routes", "zones/%s/workers/routes" % zid),
+            ("dnssec", "zones/%s/dnssec" % zid),
+            ("hold", "zones/%s/hold" % zid),
+            ("tiered_caching", "zones/%s/argo/tiered_caching" % zid),
+            ("ssl_verification", "zones/%s/ssl/verification" % zid),
+            ("custom_error_pages", "zones/%s/custom_pages" % zid),
+            ("page_shield", "zones/%s/page_shield" % zid),
+            ("bot_management", "zones/%s/bot_management" % zid),
         ],
         "account": [
             ("notification_policies", "accounts/%s/alerting/v3/policies" % aid),
             ("tunnels", "accounts/%s/cfd_tunnel?is_deleted=false" % aid),
             ("r2_buckets", "accounts/%s/r2/buckets" % aid),
             ("members", "accounts/%s/members" % aid),
+            ("workers_scripts", "accounts/%s/workers/scripts" % aid),
+            ("pages_projects", "accounts/%s/pages/projects" % aid),
+            ("access_apps", "accounts/%s/access/apps" % aid),
+            ("account_rulesets", "accounts/%s/rulesets" % aid),
         ],
     }
 

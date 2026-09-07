@@ -1,4 +1,51 @@
 {
+  "access_apps": [
+    {
+      "allowed_idps": [],
+      "aud": "851527637ed34b8b72e46e8290c598f748b30420b0024dbd6ecce7cd94977818",
+      "auto_redirect_to_identity": false,
+      "domain": "packetfarm.cloudflareaccess.com",
+      "id": "dfdbae23-7eef-47ba-92e6-d2aa1d09ab2f",
+      "landing_page_design": {},
+      "name": "App Launcher",
+      "policies": [
+        {
+          "decision": "allow",
+          "exclude": [],
+          "id": "9af07c83-9128-40e6-ac6f-d4956a4363af",
+          "include": [
+            {
+              "github-organization": {
+                "connection_id": "a32704e2-bf71-45eb-8be9-c393070ca94b",
+                "id": "7833207",
+                "name": "Cookies-And-Cream"
+              }
+            }
+          ],
+          "precedence": 2,
+          "require": [],
+          "reusable": false,
+          "uid": "9af07c83-9128-40e6-ac6f-d4956a4363af",
+          "updated_at": "2020-05-08T22:17:38Z"
+        }
+      ],
+      "session_duration": "24h",
+      "skip_app_launcher_login_page": false,
+      "type": "app_launcher",
+      "uid": "dfdbae23-7eef-47ba-92e6-d2aa1d09ab2f",
+      "updated_at": "2020-05-08T22:17:38Z"
+    }
+  ],
+  "account_rulesets": [
+    {
+      "description": "Created by the Cloudflare security team, this ruleset is designed to provide protection for free zones",
+      "id": "77454fe2d30c4220b5701f6fdfb893ba",
+      "kind": "managed",
+      "name": "Cloudflare Managed Free Ruleset",
+      "phase": "http_request_firewall_managed",
+      "source": "firewall_managed"
+    }
+  ],
   "members": [
     {
       "api_access_enabled": null,
@@ -2446,6 +2493,195 @@
       "name": "Default budget alert (auto-created)"
     }
   ],
+  "pages_projects": [
+    {
+      "build_config": {
+        "web_analytics_tag": null,
+        "web_analytics_token": null
+      },
+      "canonical_deployment": {
+        "aliases": [
+          "https://maintenance.masto.nyc"
+        ],
+        "build_config": {
+          "build_caching": null,
+          "build_command": null,
+          "destination_dir": null,
+          "root_dir": null,
+          "web_analytics_tag": null,
+          "web_analytics_token": null
+        },
+        "build_image_major_version": 2,
+        "compatibility_date": "2024-08-10",
+        "compatibility_flags": [],
+        "deployment_trigger": {
+          "metadata": {
+            "branch": "main",
+            "commit_dirty": false,
+            "commit_hash": "",
+            "commit_message": ""
+          },
+          "type": "ad_hoc"
+        },
+        "env_vars": {},
+        "environment": "production",
+        "id": "2c95cdaf-92ce-41e4-a794-5a4f762fed2c",
+        "is_skipped": false,
+        "latest_stage": {
+          "ended_on": "2024-08-10T02:23:23.249096Z",
+          "name": "deploy",
+          "started_on": null,
+          "status": "success"
+        },
+        "production_branch": "main",
+        "project_id": "84c90690-5d0e-411d-8067-603f7fbbb9a6",
+        "project_name": "cloud-migration-maintenance",
+        "short_id": "2c95cdaf",
+        "stages": [
+          {
+            "ended_on": null,
+            "name": "queued",
+            "started_on": "2024-08-10T02:23:21.816285Z",
+            "status": "active"
+          },
+          {
+            "ended_on": null,
+            "name": "initialize",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": null,
+            "name": "clone_repo",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": null,
+            "name": "build",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": "2024-08-10T02:23:23.249096Z",
+            "name": "deploy",
+            "started_on": null,
+            "status": "success"
+          }
+        ],
+        "url": "https://2c95cdaf.cloud-migration-maintenance.pages.dev",
+        "usage_model": null,
+        "uses_functions": null
+      },
+      "deployment_configs": {
+        "preview": {
+          "always_use_latest_compatibility_date": false,
+          "build_image_major_version": 2,
+          "compatibility_date": "2024-08-10",
+          "compatibility_flags": [],
+          "env_vars": null,
+          "fail_open": true,
+          "usage_model": "standard"
+        },
+        "production": {
+          "always_use_latest_compatibility_date": false,
+          "build_image_major_version": 2,
+          "compatibility_date": "2024-08-10",
+          "compatibility_flags": [],
+          "env_vars": null,
+          "fail_open": true,
+          "usage_model": "standard"
+        }
+      },
+      "domains": [
+        "cloud-migration-maintenance.pages.dev",
+        "maintenance.masto.nyc"
+      ],
+      "framework": "",
+      "framework_version": "",
+      "id": "84c90690-5d0e-411d-8067-603f7fbbb9a6",
+      "latest_deployment": {
+        "aliases": [
+          "https://maintenance.masto.nyc"
+        ],
+        "build_config": {
+          "build_caching": null,
+          "build_command": null,
+          "destination_dir": null,
+          "root_dir": null,
+          "web_analytics_tag": null,
+          "web_analytics_token": null
+        },
+        "build_image_major_version": 2,
+        "compatibility_date": "2024-08-10",
+        "compatibility_flags": [],
+        "deployment_trigger": {
+          "metadata": {
+            "branch": "main",
+            "commit_dirty": false,
+            "commit_hash": "",
+            "commit_message": ""
+          },
+          "type": "ad_hoc"
+        },
+        "env_vars": {},
+        "environment": "production",
+        "id": "2c95cdaf-92ce-41e4-a794-5a4f762fed2c",
+        "is_skipped": false,
+        "latest_stage": {
+          "ended_on": "2024-08-10T02:23:23.249096Z",
+          "name": "deploy",
+          "started_on": null,
+          "status": "success"
+        },
+        "production_branch": "main",
+        "project_id": "84c90690-5d0e-411d-8067-603f7fbbb9a6",
+        "project_name": "cloud-migration-maintenance",
+        "short_id": "2c95cdaf",
+        "stages": [
+          {
+            "ended_on": null,
+            "name": "queued",
+            "started_on": "2024-08-10T02:23:21.816285Z",
+            "status": "active"
+          },
+          {
+            "ended_on": null,
+            "name": "initialize",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": null,
+            "name": "clone_repo",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": null,
+            "name": "build",
+            "started_on": null,
+            "status": "idle"
+          },
+          {
+            "ended_on": "2024-08-10T02:23:23.249096Z",
+            "name": "deploy",
+            "started_on": null,
+            "status": "success"
+          }
+        ],
+        "url": "https://2c95cdaf.cloud-migration-maintenance.pages.dev",
+        "usage_model": null,
+        "uses_functions": null
+      },
+      "name": "cloud-migration-maintenance",
+      "preview_script_name": "pages-worker--3448879-preview",
+      "production_branch": "main",
+      "production_script_name": "pages-worker--3448879-production",
+      "subdomain": "cloud-migration-maintenance.pages.dev",
+      "uses_functions": null
+    }
+  ],
   "r2_buckets": {
     "buckets": [
       {
@@ -2635,6 +2871,166 @@
       "remote_config": false,
       "status": "healthy",
       "tun_type": "cfd_tunnel"
+    }
+  ],
+  "workers_scripts": [
+    {
+      "compatibility_date": "2026-01-29",
+      "deployment_id": "",
+      "etag": "a3d247d02e7788e48afb82230e2c37c504cdf23cfafcba757f7a4e783daa649c",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "12seasons",
+      "last_deployed_from": "wrangler",
+      "logpush": false,
+      "routes": [
+        {
+          "id": "83e85a8e9b9744c7a759742486b6ee77",
+          "pattern": "masto.nyc/weather.css",
+          "request_limit_fail_open": true,
+          "script": "12seasons"
+        }
+      ],
+      "tag": "56c5bb121a144572bd25be63efc9ce4a",
+      "tags": [],
+      "tail_consumers": null,
+      "usage_model": "standard"
+    },
+    {
+      "deployment_id": "",
+      "etag": "47c87062522a14537e7e3d17f98374ff7f7a9e53a13dff140fbb574173e9748d",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "maintenance",
+      "last_deployed_from": "dash",
+      "limits": {
+        "cpu_ms": 50
+      },
+      "logpush": false,
+      "routes": null,
+      "tag": "e4823327caa8492c9aa0c13f0a09147e",
+      "tags": null,
+      "tail_consumers": null,
+      "usage_model": "standard"
+    },
+    {
+      "deployment_id": "",
+      "etag": "b0cd2e01f6f230f6fc891d9033729d91742a893114072f1c2ba1d18dab4cb6a0",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "masto-instance",
+      "last_deployed_from": "dash",
+      "limits": {
+        "cpu_ms": 50
+      },
+      "logpush": false,
+      "routes": null,
+      "tag": "cd4bf715c84048058edc578722cf18f3",
+      "tags": null,
+      "tail_consumers": null,
+      "usage_model": "standard"
+    },
+    {
+      "compatibility_date": "2026-08-16",
+      "deployment_id": "",
+      "etag": "ec9529aab5f6a71cd5eda2ae24dfa300584544efc2057084691d7bd259490f27",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "masto-nyc-assetlinks",
+      "last_deployed_from": "wrangler",
+      "logpush": false,
+      "routes": [
+        {
+          "id": "7aecbe571d8f49e1b6a8ff06927e2343",
+          "pattern": "masto.nyc/.well-known/assetlinks.json",
+          "request_limit_fail_open": false,
+          "script": "masto-nyc-assetlinks"
+        }
+      ],
+      "tag": "bd7018e246ad41119c6f180066074aa8",
+      "tags": [],
+      "tail_consumers": null,
+      "usage_model": "standard"
+    },
+    {
+      "compatibility_date": "2025-08-09",
+      "deployment_id": "",
+      "etag": "da0c0fbcc43f24addd97b3a0514a2eed4bbb058b8d21f27fffe599e2bc608b2e",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "page-replica-mastonyc",
+      "last_deployed_from": "quick_editor",
+      "logpush": false,
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "invocation_logs": true,
+          "persist": true
+        },
+        "redact_query_string": false,
+        "traces": {
+          "enabled": false,
+          "head_sampling_rate": 1,
+          "persist": true
+        }
+      },
+      "routes": null,
+      "tag": "5c771cc39412496d8973363b41874933",
+      "tags": [],
+      "tail_consumers": null,
+      "usage_model": "standard"
+    },
+    {
+      "compatibility_date": "2025-08-09",
+      "deployment_id": "",
+      "etag": "7dcaeb610606fc05c0161e03a4a6f131c4705b0846c62b11ff4e2e443fed659b",
+      "handlers": [
+        "fetch"
+      ],
+      "has_assets": false,
+      "has_modules": true,
+      "id": "page-replica-rw",
+      "last_deployed_from": "quick_editor",
+      "logpush": false,
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "invocation_logs": true,
+          "persist": true
+        },
+        "redact_query_string": false,
+        "traces": {
+          "enabled": false,
+          "head_sampling_rate": 1,
+          "persist": true
+        }
+      },
+      "routes": null,
+      "tag": "6c88eb9fe51c416e82f0da3407565cb0",
+      "tags": [],
+      "tail_consumers": null,
+      "usage_model": "standard"
     }
   ]
 }

@@ -1,4 +1,142 @@
 {
+  "bot_management": {
+    "ai_bots_migration_opt_out": false,
+    "ai_bots_protection": "disabled",
+    "ai_search": "disabled",
+    "ai_training": "disabled",
+    "ai_user": "disabled",
+    "bot_preference_sync_enabled": false,
+    "cf_robots_variant": "off",
+    "content_bots_protection": "disabled",
+    "crawler_protection": "disabled",
+    "enable_js": false,
+    "is_robots_txt_managed": false,
+    "optimize_wordpress": false,
+    "sbfm_definitely_automated": "allow",
+    "sbfm_static_resource_protection": false,
+    "sbfm_verified_bots": "allow",
+    "suppress_session_score": false,
+    "using_latest_model": true
+  },
+  "custom_error_pages": [
+    {
+      "description": "Basic Challenge",
+      "id": "basic_challenge",
+      "preview_target": "block:basic-sec-captcha",
+      "required_tokens": [
+        "::CAPTCHA_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "WAF Challenge",
+      "id": "waf_challenge",
+      "preview_target": "block:adv-sec-captcha",
+      "required_tokens": [
+        "::CAPTCHA_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "WAF Block",
+      "id": "waf_block",
+      "preview_target": "block:waf",
+      "required_tokens": [],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "Rate limit Block",
+      "id": "ratelimit_block",
+      "preview_target": "block:rate-limit",
+      "required_tokens": [],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "Country Challenge",
+      "id": "country_challenge",
+      "preview_target": "block:country-captcha",
+      "required_tokens": [
+        "::CAPTCHA_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "Cloudflare Managed Challenge",
+      "id": "managed_challenge",
+      "preview_target": "block:managed-challenge",
+      "required_tokens": [
+        "::CAPTCHA_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "IP or IP range block",
+      "id": "ip_block",
+      "preview_target": "block:ip-ban",
+      "required_tokens": [],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "I'm Under Attack Mode",
+      "id": "under_attack",
+      "preview_target": "block:iuam-basic",
+      "required_tokens": [
+        "::IM_UNDER_ATTACK_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    },
+    {
+      "description": "5XX Errors",
+      "id": "500_errors",
+      "preview_target": "cf-error:500s",
+      "required_tokens": [
+        "::CLOUDFLARE_ERROR_500S_BOX::"
+      ],
+      "state": "customized",
+      "url": "https://pubcdn.masto.nyc/cferror.html"
+    },
+    {
+      "description": "10XX Errors",
+      "id": "1000_errors",
+      "preview_target": "cf-error:1000s",
+      "required_tokens": [
+        "::CLOUDFLARE_ERROR_1000S_BOX::"
+      ],
+      "state": "default",
+      "url": null
+    }
+  ],
+  "dnssec": {
+    "algorithm": null,
+    "digest": null,
+    "digest_algorithm": null,
+    "digest_type": null,
+    "ds": null,
+    "flags": null,
+    "key_tag": null,
+    "key_type": null,
+    "public_key": null,
+    "status": "disabled"
+  },
+  "hold": {
+    "hold": false,
+    "hold_after": null,
+    "include_subdomains": false
+  },
+  "page_shield": {
+    "enabled": false,
+    "updated_at": "0001-01-01T00:00:00Z",
+    "use_cloudflare_reporting_endpoint": true,
+    "use_connection_url_path": false
+  },
   "settings": [
     {
       "editable": true,
@@ -299,6 +437,20 @@
       "value": "on"
     }
   ],
+  "ssl_verification": [
+    {
+      "cert_pack_uuid": "09d15796-559b-4047-9a08-eb4c402203d2",
+      "certificate_status": "active",
+      "hostname": "*.masto.nyc",
+      "validation_method": "txt",
+      "validation_type": "dv"
+    }
+  ],
+  "tiered_caching": {
+    "editable": false,
+    "id": "tiered_caching",
+    "value": "off"
+  },
   "workers_routes": [
     {
       "id": "83e85a8e9b9744c7a759742486b6ee77",
