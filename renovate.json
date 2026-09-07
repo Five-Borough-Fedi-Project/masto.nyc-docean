@@ -18,16 +18,14 @@
   ],
   "pinDigests": true,
   "vulnerabilityAlerts": {
-    "description": "A published CVE does not wait for Monday. Security updates ignore the weekly schedule, the concurrency limits and the cooling period that everything else obeys.",
+    "description": "A published CVE does not wait for Monday. Renovate's defaults for this block already set prCreation to immediate, prConcurrentLimit to 0 and minimumReleaseAge to null, so a security update ignores the weekly schedule, the concurrency limits and the cooling period without being told to. Only the label needs adding. prPriority is not valid here: Renovate accepts it in packageRules alone and warns about it anywhere else.",
     "enabled": true,
     "schedule": [
       "at any time"
     ],
     "labels": [
       "security"
-    ],
-    "minimumReleaseAge": null,
-    "prPriority": 10
+    ]
   },
   "osvVulnerabilityAlerts": true,
   "kubernetes": {

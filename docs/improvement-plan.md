@@ -11,7 +11,7 @@ depth. Every number here was measured. Where something is a guess it says so.
 
 Small, evidenced, and none of them need a decision.
 
-### Cache rule for `/.well-known/*`
+### Cache rule for the cacheable `/.well-known` paths — done 2026-09-07
 
 **17,295 requests a day cross the tunnel** on paths Mastodon explicitly marks
 cacheable. Webfinger, host-meta and nodeinfo all return `max-age=259200, public`
@@ -25,7 +25,20 @@ the cost. That is smaller than it first looked, and still worth having: the edge
 closer to the remote instance asking, and it survives a pod restart, which the
 nginx cache does not.
 
-The zone's cache rules ruleset is empty, so there is nothing to conflict with.
+The zone's cache rules ruleset was empty, so there was nothing to conflict with.
+
+**It names four paths and does not match the prefix.** Two other things live
+under `/.well-known/`: `assetlinks.json` is served by the `masto-nyc-assetlinks`
+Worker, and `change-password` is a 301 carrying `no-cache`. Cache Rules are
+evaluated before Workers run, so a prefix match would have changed the caching of
+a Worker response nobody had measured. The rule matches `webfinger`, `host-meta`,
+`host-meta.json` and `nodeinfo`, which are the four confirmed to return
+`max-age=259200, public`.
+
+Measured after applying: the four go DYNAMIC to MISS to HIT, `assetlinks.json`
+is untouched, and `/about` is still DYNAMIC. A webfinger lookup for an account
+that does not exist returns 404 with `max-age=180` and caches for that long, so
+the federation risk this section was written around does not materialise.
 
 **The rule must respect the origin's cache-control. Do not set an edge TTL.**
 Mastodon returns `max-age=3.days` on a hit and `max-age=180` on 404, 410 and 400,
@@ -78,16 +91,26 @@ All three tunnel configs still carry `hello.example.com` routed to
 `hello_world`, from Cloudflare's tutorial. Three lines each, nobody meant any of
 them.
 
-### Page Shield and zone hold
+### Page Shield — done 2026-09-07
 
-Page Shield is included in the current plan and watches for third-party scripts
-changing on a site that serves user content. Zone hold prevents the domain being
-moved out of the account by accident. Both free, both one setting.
+Included in the current plan, and watches for third-party scripts changing on a
+site that serves user content.
 
-### Delete two orphaned Workers
+Zone hold was listed here beside it and is not available: setting it returns
+"Zone holds are only available on Enterprise zones". The claim that it was free
+was wrong. Nothing replaces it; the protection against an accidental domain
+transfer is the registrar lock.
 
-`page-replica-mastonyc` and `page-replica-rw` are unrouted Workers scripts. They
-are the edge half of an experiment whose Kubernetes half was removed in #37.
+### Delete two orphaned Workers — done 2026-09-07
+
+`page-replica-mastonyc` and `page-replica-rw` were unrouted Workers scripts, the
+edge half of an experiment whose Kubernetes half was removed in #37.
+`page-replica-rw` turned out to be Cloudflare's unmodified starter template, 648
+bytes of "Welcome to Cloudflare Workers". Both were copied out before deletion
+and both are gone; the two routed Workers still answer.
+
+Two other Workers are unrouted and were left alone: `maintenance` and
+`masto-instance`. Neither was identified as dead.
 
 ## Tier 2: worth doing, needs a decision
 
@@ -172,18 +195,44 @@ balancing alert. Failover is silent, so half the serving capacity can be gone
 indefinitely with no signal. Needs a token with write access; the one in use is
 read-only.
 
-### Hand-rolled AI crawler blocking
+### Hand-rolled AI crawler blocking — decided 2026-09-07, keeping it
 
-A WAF rule matches a list of user agents while Cloudflare's own bot controls for
-the same purpose sit disabled. Theirs is maintained as new crawlers appear. A
-hand-written list rots.
+A WAF rule matches a list of user agents while Cloudflare's own bot controls sit
+disabled. The argument for switching was maintenance: theirs is updated as new
+crawlers appear and a hand-written list rots.
 
-### Rocket Loader with a client-rendered app
+Rejected on what the managed rules actually do. Cloudflare's bot controls are
+built around allowing verified bots, which for an instance that has decided it
+does not want AI crawlers is the wrong default with no way to argue with it. A
+list that rots and blocks is preferable to a maintained one that permits.
 
-It defers and reorders JavaScript and Mastodon's interface is React. Cloudflare
-documents that it can break JavaScript-heavy sites. If nothing is broken, leave
-it, but it is the first thing to suspect when the interface misbehaves for no
-visible reason.
+Revisit only if Cloudflare offers a block-by-category control that does not
+carry an allowlist.
+
+### Rocket Loader with a client-rendered app — measured, and it does nothing
+
+It does rewrite Mastodon's bundles. The served HTML has every `type="module"`
+replaced with `type="<hash>-module"` on polyfills, common and application, and a
+4KB `rocket-loader.min.js` injected to restore them.
+
+Loading the site and reading the timing says the rewrite is harmless and
+pointless in equal measure. All three bundles end up back at `type="module"`
+with `integrity` and `crossorigin` intact, so Subresource Integrity survives.
+The injected script is `renderBlockingStatus: non-blocking`, transfers 4,234
+bytes, and its 835ms is queueing behind the other 193 resources rather than
+serial cost.
+
+That it has no effect is the point. Rocket Loader exists to defer scripts that
+would otherwise block parsing, and ES modules are already deferred by
+specification. There is nothing here for it to improve.
+
+Scope: `/` served 11,287 document loads in 24 hours, 0.41% of apex requests.
+Rocket Loader only ever touches HTML, so API traffic and every app client are
+untouched by it either way.
+
+Turning it off removes one request per page load and one thing that can break on
+a Mastodon upgrade. Leaving it on costs almost nothing. Neither choice is worth
+much, which is itself the finding.
 
 ### SSL mode Full, one step below Full (strict)
 
@@ -192,7 +241,7 @@ the practical gap is small. Strict is still the stronger setting.
 
 ## Tier 3: measure before acting
 
-### LibreTranslate is deployed and unreachable by Mastodon
+### LibreTranslate is deployed and unreachable by Mastodon — wired in #89
 
 Neither cluster's environment carries a translation endpoint. LibreTranslate runs
 on do-production, now with a healthy Service endpoint after the selector fix in
@@ -251,21 +300,93 @@ still happening:
 None since 2026-08-27. The `DB_POOL=25` override worked, and this is the
 evidence for it. Issue #10 is answered.
 
-### Cache measurements after tiered caching
+### Cache measurements after tiered caching — measured, and it barely moved
 
-Tiered caching was enabled on 2026-09-06. Before that the media CDN was missing
-40% of requests for objects marked `immutable`. Re-take that measurement once the
-caches have warmed. Assuming it worked is how you end up with two problems.
+| | before | 20h after |
+|---|---|---|
+| media CDN hit | 48.6% | 51.6% |
+| media CDN miss | 40.1% | 38.6% |
 
-### Two CDN hostnames bound to nothing that still take traffic
+Three points. The audit called the 40% miss rate its strongest finding on the
+grounds that `immutable` content should approach a full hit rate once warm, and
+that reasoning skipped a step.
 
-They serve roughly three thousand requests a day between them and are bound to no
-bucket. Find out what is calling them before removing them.
+The breakdown says why. Of 84,265 requests, `revalidated` is 1.6% and `expired`
+0.6%. Almost nothing is missing because it aged out; the misses are first
+fetches. Mastodon's media CDN serves remote avatars and attachments from
+thousands of instances, and most of it is asked for once by one person. A long
+tail of genuinely cold objects does not have a hit rate to recover, and no
+caching topology fixes that.
 
-### Three R2 buckets of unknown purpose
+Tiered caching was still worth turning on and it is free. Worth one more
+measurement in a week for the last word, but the expectation should now be small
+gains, and the 40% is most likely structural.
 
-Five exist and two are demonstrably in use. The others may be backups or 2023
-leftovers. They bill for storage either way.
+### Two CDN hostnames taking only hostile traffic — answered
+
+Both are bound to a development bucket left from February 2023. Over 24 hours
+they took 2,339 requests between them and returned **zero** 200s: 404, 401, 402,
+403 and 301, nothing else.
+
+Asking what was calling them settles it. Every path is a WordPress probe:
+`/wp/`, `/wordpress/`, `/blog/index.php`, `/wp-json/batch/v1/`, `/index.php`.
+There is no legitimate traffic to preserve. The request count was real and it was
+never evidence of use, which is what "they serve three thousand requests a day"
+implied when it was written here.
+
+Deleting the two DNS records removes the hostnames from scanning surface. The
+bucket behind them holds 18 objects and stays; only the hostnames go.
+
+Approved 2026-09-07:
+
+    ./scripts/cloudflare-apply.py --apply delete-hostname-cdn-dev delete-hostname-cdn.dev
+
+That unbinds the R2 custom domain and then removes the record, in that order,
+because deleting the record underneath a live binding leaves the bucket holding
+a domain that no longer resolves.
+
+### Three R2 buckets of unknown purpose — answered
+
+| bucket | objects | size | verdict |
+|---|---|---|---|
+| media store | 1,962,097 | 900.51 GB | live |
+| public assets | 14 | 0.01 GB | **in use**, see below |
+| dev bucket | 18 | ~0 | 2023 leftover, behind the two scanned hostnames |
+| postgres bucket | **0** | 0 | empty |
+| snapshooter bucket | **0** | 0 | empty |
+
+Two are empty, so "they bill for storage either way" was wrong; empty buckets
+bill nothing.
+
+The public assets bucket looked like the obvious deletion and is the one that
+must stay: the zone's 500 error page is configured to fetch from it. One request
+in 24 hours got a 200, because Cloudflare caches that page and 500s are rare, so
+traffic volume said nothing useful about whether it was needed.
+
+The bucket named for Postgres is empty and is not the backup target. Backups go
+to DigitalOcean Spaces, confirmed from the running cronjob's configuration and a
+completed run.
+
+Deleting both empty buckets approved 2026-09-07:
+
+    ./scripts/cloudflare-apply.py --apply delete-bucket-mastodon-postgres delete-bucket-mastodon-snapshooter
+
+R2 refuses to delete a bucket that is not empty, so if either has gained objects
+since this was measured the call fails instead of destroying them.
+
+### allow_local bypasses the private-address allowlist
+
+Wiring up LibreTranslate turned up a path from an admin-configurable field to
+the DigitalOcean metadata service, which answers from a pod on do-production.
+`allow_local: true` selects `ProxySocket`, whose private-address check is a
+no-op, so `ALLOWED_PRIVATE_ADDRESSES` is never consulted on those paths. Four
+call sites use it and one is the webhook delivery worker, whose URL is free text
+in the admin UI. Redirects are followed three hops with the same socket class.
+
+Admin-gated, nothing currently misused, and both existing webhooks are
+legitimate. Tracked in #93 with the mechanism, what is reachable, and why simply
+removing the flag would break a working feature: one webhook deliberately
+targets an in-cluster Service, which is the case the flag exists to allow.
 
 ## Rejected, with reasons
 

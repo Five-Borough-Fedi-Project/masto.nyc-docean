@@ -117,7 +117,7 @@ Two ways to fix it, either sufficient. Set a notification address on each pool,
 or add a notification policy of type `load_balancing_health_alert` filtered to
 the pools. Both need a token with write access; the one in use here is read-only.
 
-### Page Shield is off
+### Page Shield is off — enabled 2026-09-07
 
 Included in the current plan. It watches for third-party scripts changing or
 appearing, on a site that serves user-submitted content.
@@ -128,12 +128,24 @@ Six Workers scripts exist and two are routed. Two of the unrouted ones are the
 edge half of a page-replica experiment whose Kubernetes half was removed from
 this repository in September 2026. They do nothing and should go together.
 
-Five R2 buckets exist and two are demonstrably in use. The rest may be backups or
-may be 2023 leftovers; they bill for storage either way and nobody outside the
-account can tell which is which.
+Five R2 buckets exist. Measured on 2026-09-07 through `r2StorageAdaptiveGroups`:
+the media store holds 1,962,097 objects and 900.51 GB, and two of the remaining
+four hold **zero objects**, so they bill nothing. "They bill for storage either
+way" was wrong.
 
-Zone hold is off. It is free and prevents the domain being moved out of the
-account by accident.
+The one that looked most disposable is the one that has to stay. The bucket
+behind the public-assets hostname holds fourteen objects and serves the zone's
+500 error page, which is configured as a custom page URL. It saw one 200 in
+twenty-four hours, because Cloudflare caches that page and 500s are rare, so
+request volume said nothing about whether it was needed.
+
+The bucket named for Postgres is empty and is not the backup target. Backups go
+to DigitalOcean Spaces, confirmed from the running cronjob's configuration and a
+completed run.
+
+Zone hold is off and stays off. Attempting to set it on 2026-09-07 returned
+"Zone holds are only available on Enterprise zones" (error 1005). It was listed
+here as free, which was wrong.
 
 ### Worth a decision
 
@@ -190,3 +202,10 @@ hostname was called unused when it serves the custom error page.
 All three came from generalising a single observation. The configuration says
 what is set; the analytics say what is happening, and only the second kind of
 question can be answered by looking at settings.
+
+The correction about the two CDN hostnames was itself wrong, which is the more
+useful lesson. They take roughly three thousand requests a day and return **zero
+200s**: every path is a WordPress probe. The request count was real and it was
+never evidence of use. Correcting "dead" to "three thousand requests a day"
+swapped one unchecked claim for another, because the follow-up question, what is
+calling them and what do they get back, went unasked for a second time.
