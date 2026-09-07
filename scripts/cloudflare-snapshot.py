@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dump the Cloudflare configuration to JSON so it can be diffed and reviewed.
+"""Dump the Cloudflare configuration to JSON, for reading, not for committing.
 
 This is deliberately not Terraform. Terraform is a control plane, and an apply
 that gets DNS wrong takes the site off the internet. The point here is to be able
@@ -11,11 +11,15 @@ It also captures more than a provider can model: zone settings, Workers routes,
 account membership, and which managed rulesets are enabled. Terraform would show
 none of that.
 
-The output is committed, so the git history becomes the change log the Cloudflare
-dashboard does not keep, and a diff on a scheduled run is the drift alert.
+The output is deliberately NOT committed. Even with credentials redacted it is a
+machine-readable map of the edge: which paths are challenged, which are rate
+limited, what the WAF matches on, which hostnames exist. That is reconnaissance
+material and this repository is public. The default output path is gitignored.
+
+What belongs in git is the analysis, not the dump. See docs/cloudflare-audit.md.
 
 Usage:
-    CLOUDFLARE_API_TOKEN=... ./scripts/cloudflare-snapshot.py [--out cloudflare/snapshot]
+    CLOUDFLARE_API_TOKEN=... ./scripts/cloudflare-snapshot.py [--out DIR]
 
 Reads the token from terraform.tfvars when the environment does not carry one,
 so a local run needs no setup.
@@ -76,7 +80,7 @@ def scrub(obj, in_expression=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="cloudflare/snapshot")
+    ap.add_argument("--out", default=".cloudflare-snapshot")
     ap.add_argument("--zone", default="masto.nyc")
     args = ap.parse_args()
 
