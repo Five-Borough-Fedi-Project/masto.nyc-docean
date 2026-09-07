@@ -61,6 +61,14 @@ def is_pinned(image):
 def main():
     label = sys.argv[1] if len(sys.argv) > 1 else "manifests"
     docs = [d for d in yaml.safe_load_all(sys.stdin) if d]
+
+    # An empty stdin used to pass: nothing to check means nothing to complain
+    # about, and the script printed "0 objects" and exited 0. A broken pipe or a
+    # kustomize build that rendered nothing would have gone green in CI.
+    if not docs:
+        print("%s: nothing on stdin. Expected `kubectl kustomize <path> |`." % label)
+        return 1
+
     problems = []
 
     for d in docs:
