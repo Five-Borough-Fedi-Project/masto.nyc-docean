@@ -6,9 +6,18 @@
 # either cluster. Cloudflare is a public API, which is the one thing here
 # Actions can talk to.
 #
-# Inert until CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID exist. Without them it
+# Inert until CLOUDFLARE_MASTO_UPGRADE_TOKEN and CLOUDFLARE_ZONE_ID exist. Without them it
 # reports what it would have done and succeeds, so this can be merged and left
 # alone until the credentials are ready.
+#
+# The secret is deliberately not the token the snapshot script uses. That one is
+# read-only but reads the whole account, and this needs write on exactly one
+# thing. A credential living in CI should be able to do the one job it has:
+#
+#   Zone -> Cache Purge -> Purge, scoped to the masto.nyc zone alone.
+#
+# Nothing else. It cannot read DNS, cannot see the WAF, cannot touch the load
+# balancer, and is worth little to anyone who extracts it from a workflow run.
 name: Purge Cloudflare cache
 
 on:
@@ -36,7 +45,7 @@ jobs:
     steps:
       - name: Purge everything
         env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TOKEN: ${{ secrets.CLOUDFLARE_MASTO_UPGRADE_TOKEN }}
           ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
           REASON: ${{ inputs.reason }}
         run: |
@@ -46,8 +55,8 @@ jobs:
             {
               echo "### Skipped"
               echo
-              echo "\`CLOUDFLARE_API_TOKEN\` or \`CLOUDFLARE_ZONE_ID\` is not set, so"
-              echo "nothing was purged. The token needs **Zone → Cache Purge**."
+              echo "\`CLOUDFLARE_MASTO_UPGRADE_TOKEN\` or \`CLOUDFLARE_ZONE_ID\` is not set, so"
+              echo "nothing was purged. It needs one permission and no others:"
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::notice::Cloudflare credentials absent. Nothing purged."
             exit 0
