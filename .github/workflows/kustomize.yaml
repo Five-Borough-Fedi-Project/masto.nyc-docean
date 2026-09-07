@@ -53,6 +53,29 @@ jobs:
   # kube-system components, reconciled by flux/do-production/infrastructure.yaml
   # rather than by a cluster overlay. A separate job so the existing per-cluster
   # check names stay as they are.
+  # The upgrade workflow decides which Mastodon version to move to, and it runs
+  # unattended on a schedule. Getting that choice wrong opens a pull request
+  # that skips a minor, so the policy is worth a test rather than a read.
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Version picker
+        run: python3 scripts/tests/test_next_mastodon_version.py
+
+      # It used to print "0 objects" and exit 0 on empty stdin, so a broken pipe
+      # or a kustomize build that rendered nothing would have gone green. Fixed
+      # in #82; this is the test that would have caught it.
+      - name: check-manifests refuses empty input
+        run: |
+          set -euo pipefail
+          if : | python3 scripts/check-manifests.py empty; then
+            echo "::error::check-manifests.py passed on empty stdin"
+            exit 1
+          fi
+          echo "  it exits non-zero, as it should"
+
   infrastructure:
     runs-on: ubuntu-latest
     steps:
