@@ -406,9 +406,22 @@ before revisiting.
 `vary` includes Cookie and authorized fetch signs requests. Hard to reason about
 for a three minute TTL.
 
-**Managing Cloudflare in Terraform.** Deferred deliberately. The goal was reading
-the configuration and finding problems, and a control plane is the wrong tool for
-that. Issue #11 stays open if that changes.
+**Managing Cloudflare in Terraform.** Dropped on 2026-09-07 rather than left
+open. The
+import worked, #76 planned 8 resources to adopt with nothing to add, change or
+destroy, and it was still the wrong tool. The question was what is configured and
+what is wrong with it, and a provider only models a subset: zone settings,
+Workers routes and which managed rulesets are enabled all produced findings and
+none of them are provider resources. An apply that gets DNS or the load balancer
+wrong also takes the site off the internet, which reading never does.
+
+`scripts/cloudflare-snapshot.py` reads with a read-only token and
+`scripts/cloudflare-apply.py` changes one named thing at a time with a token
+scoped to that thing. Both are documented in `docs/cloudflare-tokens.md`.
+
+Issue #11 stays open. What would change the answer is wanting Cloudflare
+configuration reviewable in a pull request before it takes effect, which is a
+real argument and is not the one that opened it.
 
 ## Corrections
 
