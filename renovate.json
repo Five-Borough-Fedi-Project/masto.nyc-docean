@@ -4,12 +4,13 @@
     "config:recommended",
     ":dependencyDashboard"
   ],
+  "description": "Limits raised from prConcurrentLimit 5 and prHourlyLimit 2 on 2026-09-07. Those were sized for a repository nobody was watching, and with 19 updates queued on the dependency dashboard they would have taken roughly three Mondays to drain. The weekly schedule is what keeps this quiet; the limits only decide how much of one Monday's work arrives at once. prHourlyLimit 0 means unlimited.",
   "timezone": "America/New_York",
   "schedule": [
     "before 9am on monday"
   ],
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
+  "prConcurrentLimit": 15,
+  "prHourlyLimit": 0,
   "labels": [
     "dependencies"
   ],
