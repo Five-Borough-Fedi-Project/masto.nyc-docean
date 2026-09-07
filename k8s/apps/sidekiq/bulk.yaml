@@ -57,12 +57,24 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 10
+          # Raised 2026-09-07, with the move to mastodon-large. This pod was
+          # OOMKilled on 2026-09-06 at 16:34 after five and a half hours against
+          # the old 1100Mi, and sidekiq-realtime sat at 735Mi against the same
+          # ceiling. An OOMKill here is not free: plain Sidekiq has no
+          # super_fetch, so whatever the 25 threads were holding is lost rather
+          # than requeued.
+          #
+          # mastodon-web argues, in its own manifest, that a limit guessed below
+          # the real peak OOMKills the tier it was meant to protect. That was
+          # right, and it was not applied here. The peak is still unrecorded, so
+          # this is a ceiling well clear of anything observed instead of a
+          # measurement. The nodes are 31Gi and run under a third full.
           resources:
             requests:
-              memory: "700Mi"
+              memory: "1Gi"
               cpu: "200m"
             limits:
-              memory: "1100Mi"
+              memory: "2Gi"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

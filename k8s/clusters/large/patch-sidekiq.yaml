@@ -1,0 +1,31 @@
+# Sidekiq runs here, not on do-production. The DO nodes are 3Gi of allocatable
+# memory each and were sitting at 93, 75 and 56 percent with Sidekiq on them;
+# these are 31Gi each at under a third. mastodon-sidekiq-bulk was OOMKilled on
+# 2026-09-06 for exactly that reason.
+#
+# The database path was the thing worth checking before moving it, and it is
+# not a cost. TCP connect to Postgres, 15 samples on 2026-09-07: 8.6ms p50 from
+# here against 10.7ms from do-production. Web already runs here and is more
+# latency sensitive than a job queue.
+#
+# What this trades: if this cluster is unreachable, Sidekiq stops. Nothing is
+# lost, because the queues live in Redis and the policy is noeviction, but they
+# grow. Redis peaked at 238MB of 418MB, so the backlog has roughly 180MB before
+# writes start failing. That is the number to watch during a long outage here.
+#
+# The patch itself only replaces envFrom. do-production splits its configuration
+# across mastodon-env-secret and mastodon-env-tf; the tf half carries VPC private
+# hostnames that do not resolve from here, so this cluster reads one merged
+# secret. Same reason as patch-web.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder
+spec:
+  template:
+    spec:
+      containers:
+        - name: mastodon
+          envFrom:
+            - secretRef:
+                name: mastodon-env-secret

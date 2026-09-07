@@ -17,7 +17,6 @@ resources:
   - ../../base/nginx
   - ../../base/mastodon-web
   - ../../apps/streaming
-  - ../../apps/sidekiq
   - ../../apps/libretranslate
   - ../../apps/welcome-webhook
   - ../../apps/cronjobs

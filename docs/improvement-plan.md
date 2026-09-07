@@ -59,20 +59,20 @@ excluded, and the 0.034% still on 1.2 includes named peer instances and the
 official Mastodon Android client. TLS 1.3 needs OpenSSL 1.1.1 or newer; a peer on
 an older base image simply stops delivering, silently.
 
-### nginx read timeout
+### nginx read timeout — done
 
 Cloudflare waits 125 seconds. nginx sets no timeout, so it defaults to 60. A
 request between those two is cut by the middle of the stack while the edge is
 still waiting, and the client gets a 504 that did not come from the edge. Set
 `proxy_read_timeout 125s`.
 
-### nginx logging
+### nginx logging — done
 
 `access_log /dev/null; error_log /dev/null`. With vector removed there is now no
 request log anywhere in the stack, so a 502 leaves nothing to read. Turn access
 logging on, at minimum for non-2xx.
 
-### Remove the sample tunnel ingress rules
+### Remove the sample tunnel ingress rules — done
 
 All three tunnel configs still carry `hello.example.com` routed to
 `hello_world`, from Cloudflare's tutorial. Three lines each, nobody meant any of
@@ -91,7 +91,7 @@ are the edge half of an experiment whose Kubernetes half was removed in #37.
 
 ## Tier 2: worth doing, needs a decision
 
-### The nginx cache is full and unbounded
+### The nginx cache is full and unbounded — bounded
 
 Configured with a 10MB keys zone and `max_size=1g`, writing to `/tmp`.
 
@@ -116,7 +116,7 @@ cannot be served another's page. `proxy_ignore_headers` is not set, so origin
 One dead line: `proxy_cache_valid 410 24h` never applies, because Mastodon sends
 an explicit `max-age` on 410 and that takes precedence.
 
-### Upload limits disagree across three layers
+### Upload limits disagree across three layers — done
 
 | | limit |
 |---|---|
@@ -128,7 +128,7 @@ A video between 80 and 99 MB is one Mastodon accepts and advertises, and the
 client will offer to upload. nginx rejects it with a 413 before Rails sees it.
 Raise `client_max_body_size` to 100m.
 
-### Sidekiq memory limits are set where web's deliberately are not
+### Sidekiq memory limits are set where web's deliberately are not — done
 
 `mastodon-sidekiq-bulk` was **OOMKilled on 2026-09-06 at 16:34**, after about
 five and a half hours, against a 1100Mi limit. `realtime` shares that limit and
@@ -140,9 +140,25 @@ nothing here retains the history that would tell you the peak. That reasoning is
 sound and it applies just as well to Sidekiq, which does have a guessed limit and
 has now been killed by it.
 
-An OOMKilled Sidekiq loses its in-flight jobs, so this is not free. Either raise
-the limits with the same honesty the web comment asks for, or drop them and rely
-on the requests and the priority class, as web does.
+An OOMKilled Sidekiq loses its in-flight jobs, so this is not free: plain Sidekiq
+has no super_fetch, and whatever the 25 threads were holding goes with them.
+
+Resolved by moving Sidekiq to mastodon-large and raising the ceilings to 2Gi.
+The DO nodes carry 3Gi of allocatable memory each and were running at 93, 75 and
+56 percent; the bare-metal nodes are 31Gi each at under a third. The limits are
+still guesses, and now they are guesses with room above anything observed.
+
+The database path was the thing to check first, and it is not a cost. TCP
+connect to Postgres, 15 samples on 2026-09-07: **8.6ms p50 from mastodon-large
+against 10.7ms from do-production**. The web tier already runs there and cares
+more about latency than a job queue does.
+
+The trade is availability. If the bare-metal cluster is unreachable, Sidekiq
+stops, and unlike the web tier there is no second pool to take over. Nothing is
+lost, because the queues live in Redis under `noeviction`, but they grow: Redis
+peaked at 238MB of 418MB, so a backlog has roughly 180MB before writes start
+failing. That is the number to watch during a long outage, and it is the
+strongest argument for the Redis alert in Tier 3.
 
 ### Load balancer notifications
 
@@ -171,15 +187,25 @@ the practical gap is small. Strict is still the stronger setting.
 
 ## Tier 3: measure before acting
 
+### LibreTranslate is deployed and unreachable by Mastodon
+
+Neither cluster's environment carries a translation endpoint. LibreTranslate runs
+on do-production, now with a healthy Service endpoint after the selector fix in
+#60, and nothing points Mastodon at it. It also could not serve mastodon-large if
+it were configured, because the address is inside the do-production pod network
+and only that cluster's `ALLOWED_PRIVATE_ADDRESSES` permits it. Wiring it up
+needs a decision and a secret change.
+
 ### Connection arithmetic is tighter than it looks
 
 | | connections |
 |---|---|
 | do web, 1 pod | 10 |
-| do sidekiq, 3 pods at 25 | 75 |
+| sidekiq bulk and realtime, at 25 | 50 |
+| sidekiq scheduler, at 5 | 5 |
 | do streaming, 1 pod | 10 |
 | large web, 2 pods | 20 |
-| **maximum client connections** | **115** |
+| **maximum client connections** | **95** |
 | pgbouncer pool size | 85 |
 | postgres max_connections | 100 |
 
@@ -189,8 +215,9 @@ instead of failing. The headroom is arithmetic, though, and thin.
 
 The cheapest slack is `mastodon-sidekiq-sched`, which runs `-c 25` with
 `DB_POOL=25` to service the scheduler queue alone. That queue runs periodic jobs
-and does not need 25 threads. Dropping it to 5 returns 20 connections, and takes
-memory pressure off a pod that sits at 573Mi against a 900Mi limit.
+and does not need 25 threads. Dropped to 5, which returns 20 connections and
+takes memory pressure off a pod sitting at 573Mi against a 900Mi limit. Maximum
+client connections are now 95 against a pgbouncer pool of 85.
 
 ### Redis has no eviction and 57% peak
 
