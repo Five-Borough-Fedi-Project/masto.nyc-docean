@@ -68,6 +68,10 @@ node_modules/
 id_rsa
 id_ed25519
 
+# Cloudflare configuration dumps. Redacted of credentials, but still a map of
+# which paths are protected and how, which does not belong in a public repo.
+.cloudflare-snapshot/
+
 # OS and editor droppings
 .DS_Store
 Thumbs.db

@@ -63,6 +63,10 @@ Phase 8 is the only one outstanding. Everything above it landed between
   containers set `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false` or
   drop capabilities, and 3 set `runAsNonRoot`. This was on the original review
   list and has never been touched.
+- **Cloudflare is documented, not managed.** `docs/cloudflare-audit.md` is a
+  point-in-time reading from 2026-09-06 with the findings and the numbers behind
+  them. Managing it in Terraform was considered and set aside; issue #11 stays
+  open if that changes.
 - **Issue #11, Cloudflare under Terraform.** The provider is declared and
   `cloudflare.tf` holds the variables, so nothing is left but a read-only token
   and an inventory to write `import` blocks against. The zone carries load
