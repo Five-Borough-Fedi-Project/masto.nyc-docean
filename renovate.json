@@ -75,6 +75,13 @@
       "groupName": "ci and terraform"
     },
     {
+      "description": "pydantic pins pydantic-core to an exact version, so any independent bump of it is wrong by construction. Renovate proposed 2.48.0 against pydantic 2.13.5, which pins 2.46.5, and the image would not build. It is a transitive dependency that happens to be written out in a fully resolved requirements file; it moves when pydantic moves.",
+      "matchPackageNames": [
+        "pydantic-core"
+      ],
+      "enabled": false
+    },
+    {
       "description": "A major version is a reading task, not a merge task.",
       "matchUpdateTypes": [
         "major"
