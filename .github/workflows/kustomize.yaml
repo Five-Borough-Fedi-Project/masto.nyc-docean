@@ -53,6 +53,22 @@ jobs:
   # kube-system components, reconciled by flux/do-production/infrastructure.yaml
   # rather than by a cluster overlay. A separate job so the existing per-cluster
   # check names stay as they are.
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # It used to print "0 objects" and exit 0 on empty stdin, so a broken pipe
+      # or a kustomize build that rendered nothing would have gone green.
+      - name: check-manifests refuses empty input
+        run: |
+          set -euo pipefail
+          if : | python3 scripts/check-manifests.py empty; then
+            echo "::error::check-manifests.py passed on empty stdin"
+            exit 1
+          fi
+          echo "  it exits non-zero, as it should"
+
   infrastructure:
     runs-on: ubuntu-latest
     steps:
