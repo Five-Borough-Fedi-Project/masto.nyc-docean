@@ -172,18 +172,44 @@ balancing alert. Failover is silent, so half the serving capacity can be gone
 indefinitely with no signal. Needs a token with write access; the one in use is
 read-only.
 
-### Hand-rolled AI crawler blocking
+### Hand-rolled AI crawler blocking — decided 2026-09-07, keeping it
 
-A WAF rule matches a list of user agents while Cloudflare's own bot controls for
-the same purpose sit disabled. Theirs is maintained as new crawlers appear. A
-hand-written list rots.
+A WAF rule matches a list of user agents while Cloudflare's own bot controls sit
+disabled. The argument for switching was maintenance: theirs is updated as new
+crawlers appear and a hand-written list rots.
 
-### Rocket Loader with a client-rendered app
+Rejected on what the managed rules actually do. Cloudflare's bot controls are
+built around allowing verified bots, which for an instance that has decided it
+does not want AI crawlers is the wrong default with no way to argue with it. A
+list that rots and blocks is preferable to a maintained one that permits.
 
-It defers and reorders JavaScript and Mastodon's interface is React. Cloudflare
-documents that it can break JavaScript-heavy sites. If nothing is broken, leave
-it, but it is the first thing to suspect when the interface misbehaves for no
-visible reason.
+Revisit only if Cloudflare offers a block-by-category control that does not
+carry an allowlist.
+
+### Rocket Loader with a client-rendered app — measured, and it does nothing
+
+It does rewrite Mastodon's bundles. The served HTML has every `type="module"`
+replaced with `type="<hash>-module"` on polyfills, common and application, and a
+4KB `rocket-loader.min.js` injected to restore them.
+
+Loading the site and reading the timing says the rewrite is harmless and
+pointless in equal measure. All three bundles end up back at `type="module"`
+with `integrity` and `crossorigin` intact, so Subresource Integrity survives.
+The injected script is `renderBlockingStatus: non-blocking`, transfers 4,234
+bytes, and its 835ms is queueing behind the other 193 resources rather than
+serial cost.
+
+That it has no effect is the point. Rocket Loader exists to defer scripts that
+would otherwise block parsing, and ES modules are already deferred by
+specification. There is nothing here for it to improve.
+
+Scope: `/` served 11,287 document loads in 24 hours, 0.41% of apex requests.
+Rocket Loader only ever touches HTML, so API traffic and every app client are
+untouched by it either way.
+
+Turning it off removes one request per page load and one thing that can break on
+a Mastodon upgrade. Leaving it on costs almost nothing. Neither choice is worth
+much, which is itself the finding.
 
 ### SSL mode Full, one step below Full (strict)
 
@@ -257,15 +283,42 @@ Tiered caching was enabled on 2026-09-06. Before that the media CDN was missing
 40% of requests for objects marked `immutable`. Re-take that measurement once the
 caches have warmed. Assuming it worked is how you end up with two problems.
 
-### Two CDN hostnames bound to nothing that still take traffic
+### Two CDN hostnames taking only hostile traffic — answered
 
-They serve roughly three thousand requests a day between them and are bound to no
-bucket. Find out what is calling them before removing them.
+Both are bound to a development bucket left from February 2023. Over 24 hours
+they took 2,339 requests between them and returned **zero** 200s: 404, 401, 402,
+403 and 301, nothing else.
 
-### Three R2 buckets of unknown purpose
+Asking what was calling them settles it. Every path is a WordPress probe:
+`/wp/`, `/wordpress/`, `/blog/index.php`, `/wp-json/batch/v1/`, `/index.php`.
+There is no legitimate traffic to preserve. The request count was real and it was
+never evidence of use, which is what "they serve three thousand requests a day"
+implied when it was written here.
 
-Five exist and two are demonstrably in use. The others may be backups or 2023
-leftovers. They bill for storage either way.
+Deleting the two DNS records removes the hostnames from scanning surface. The
+bucket behind them holds 18 objects.
+
+### Three R2 buckets of unknown purpose — answered
+
+| bucket | objects | size | verdict |
+|---|---|---|---|
+| media store | 1,962,097 | 900.51 GB | live |
+| public assets | 14 | 0.01 GB | **in use**, see below |
+| dev bucket | 18 | ~0 | 2023 leftover, behind the two scanned hostnames |
+| postgres bucket | **0** | 0 | empty |
+| snapshooter bucket | **0** | 0 | empty |
+
+Two are empty, so "they bill for storage either way" was wrong; empty buckets
+bill nothing.
+
+The public assets bucket looked like the obvious deletion and is the one that
+must stay: the zone's 500 error page is configured to fetch from it. One request
+in 24 hours got a 200, because Cloudflare caches that page and 500s are rare, so
+traffic volume said nothing useful about whether it was needed.
+
+The bucket named for Postgres is empty and is not the backup target. Backups go
+to DigitalOcean Spaces, confirmed from the running cronjob's configuration and a
+completed run.
 
 ## Rejected, with reasons
 
