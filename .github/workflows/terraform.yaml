@@ -65,6 +65,9 @@ env:
   # secret is absent.
   LARGE_NODE_HOSTNAME: ${{ secrets.LARGE_NODE_HOSTNAME }}
   TF_VAR_large_node_ips: ${{ secrets.LARGE_NODE_IPS }}
+  # Empty until the secret exists, which leaves every alert policy in
+  # monitoring.tf at count = 0 and the plan clean. See docs/discord-alerts.md.
+  TF_VAR_discord_ops_webhook: ${{ secrets.DISCORD_OPS_WEBHOOK }}
 
 jobs:
   plan:

@@ -216,6 +216,70 @@ def build_items(zid, aid):
     for b in ("mastodon-postgres", "mastodon-snapshooter"):
         items.append(bucket_item(b))
 
+    # Load balancer failover is silent today. Both pools carry an empty
+    # notification address and none of the account's notification policies is a
+    # load balancing alert, so half the serving capacity can disappear with no
+    # signal. docs/improvement-plan.md has the measurement behind that.
+    #
+    # Two calls, because Cloudflare models the destination separately from the
+    # policy that uses it: create a webhook destination, then a policy pointing
+    # at its id. Re-running is safe; both are matched by name first.
+    #
+    # The URL is read from DISCORD_OPS_WEBHOOK rather than written here. It is a
+    # credential, and this repository is public.
+    DEST_NAME = "discord-ops"
+    POLICY_NAME = "masto.nyc load balancer health"
+
+    def find_dest(c):
+        r, err = call(c["t"], "GET", "accounts/%s/alerting/v3/destinations/webhooks" % aid)
+        if err:
+            return None
+        return next((w for w in (r or []) if w.get("name") == DEST_NAME), None)
+
+    def find_policy(c):
+        r, err = call(c["t"], "GET", "accounts/%s/alerting/v3/policies" % aid)
+        if err:
+            return None
+        return next((x for x in (r or []) if x.get("name") == POLICY_NAME), None)
+
+    def read_lb_alert(c):
+        d, pol = find_dest(c), find_policy(c)
+        return {"destination": d, "policy": pol} if (d or pol) else None
+
+    def write_lb_alert(c):
+        url = os.environ.get("DISCORD_OPS_WEBHOOK", "")
+        if not url:
+            return None, ("DISCORD_OPS_WEBHOOK is not set. Use the Discord webhook "
+                          "URL with /slack appended; Cloudflare sends a Slack-shaped "
+                          "payload and Discord only accepts it on that path.")
+        dest = find_dest(c)
+        if dest is None:
+            dest, err = call(c["t"], "POST",
+                             "accounts/%s/alerting/v3/destinations/webhooks" % aid,
+                             {"name": DEST_NAME, "url": url, "secret": ""})
+            if err:
+                return None, "creating the webhook destination: %s" % err
+
+        if find_policy(c) is not None:
+            return read_lb_alert(c), None
+
+        return call(c["t"], "POST", "accounts/%s/alerting/v3/policies" % aid, {
+            "name": POLICY_NAME,
+            "description": "A load balancer pool changed health state",
+            "enabled": True,
+            "alert_type": "load_balancing_health_alert",
+            "mechanisms": {"webhooks": [{"id": dest["id"]}]},
+        })
+
+    items.append(Item(
+        "lb-failover-alert",
+        "Alert to Discord when a load balancer pool changes health",
+        "Account -> Notifications -> Edit",
+        read_lb_alert, write_lb_alert,
+        lambda v: "not configured" if not v else "destination=%s policy=%s" % (
+            "yes" if (v or {}).get("destination") else "no",
+            "yes" if (v or {}).get("policy") else "no")))
+
     return items
 
 

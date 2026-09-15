@@ -60,3 +60,23 @@ variable "large_node_ips" {
   default     = []
   sensitive   = true
 }
+
+### Discord webhook for operational alerts, with `/slack` appended.
+###
+### Discord accepts Slack-formatted payloads at <webhook-url>/slack, and
+### DigitalOcean's only webhook destination is its Slack one, so the two meet
+### without anything in between.
+###
+### sensitive = true keeps it out of plan and apply output. It does NOT keep it
+### out of state, and a Discord webhook URL is a credential: anyone holding it
+### can post to the channel as the integration. State lives in a private Spaces
+### bucket, which is the same trust boundary as every other secret here.
+###
+### Empty by default, and every alert policy is count = 0 while it is empty, so
+### this file plans clean with no secret set.
+variable "discord_ops_webhook" {
+  type        = string
+  description = "Discord webhook URL with /slack appended, for DigitalOcean alerts"
+  default     = ""
+  sensitive   = true
+}
