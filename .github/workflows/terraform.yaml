@@ -194,6 +194,69 @@ jobs:
               body,
             });
 
+  # Says an apply is parked at the gate, because nothing else does. The gate is
+  # the whole point of the production environment, and an approval nobody knows
+  # about is just a stalled deploy: the run on 2026-09-15 sat waiting overnight.
+  #
+  # This is a job rather than a GitHub webhook event because Discord's /github
+  # endpoint renders only a subset of GitHub's events, and deployment reviews are
+  # not in it. Posting Slack-shaped JSON to /slack is a format we control, so it
+  # arrives whatever Discord chooses to support.
+  #
+  # It depends on plan alone, so it runs beside apply while apply waits, rather
+  # than behind it. Making apply depend on this would mean a Discord outage
+  # blocks infrastructure changes.
+  notify-pending:
+    needs: plan
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.plan.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tell Discord an approval is waiting
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+          SUMMARY: ${{ needs.plan.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "::notice::DISCORD_OPS_WEBHOOK is not set, so nothing was sent."
+            exit 0
+          fi
+
+          # The same secret feeds DigitalOcean's alert policies, where it has to
+          # end in /slack. Normalise either spelling so this works whichever way
+          # it was stored, and never echo the result.
+          base="${WEBHOOK%/}"
+          base="${base%/slack}"
+          base="${base%/github}"
+
+          # jq builds the JSON so a plan containing quotes or newlines cannot
+          # break out of the payload.
+          jq -nc \
+            --arg summary "${SUMMARY:-plan produced no summary}" \
+            --arg url "$RUN_URL" \
+            --arg sha "${SHA:0:7}" \
+            --arg actor "$ACTOR" \
+            '{text: ("**OpenTofu apply is waiting for approval**\n" +
+                     $summary + "\n" +
+                     "commit `" + $sha + "` by " + $actor + "\n" + $url)}' > payload.json
+
+          code=$(curl -sS -o response.txt -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data @payload.json "${base}/slack")
+
+          if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+            echo "::warning::Discord returned HTTP ${code}. The approval is still waiting."
+            head -c 300 response.txt
+            exit 0
+          fi
+          echo "Notified Discord: an apply is waiting at ${RUN_URL}" >> "$GITHUB_STEP_SUMMARY"
+
   apply:
     needs: plan
     # needs.plan.outputs.has_changes keeps an empty plan from asking for
