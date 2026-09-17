@@ -104,20 +104,17 @@ jobs:
               exit 0 ;;
           esac
 
-          # A branch with no pull request behind it is the normal outcome here,
-          # not an anomaly. The organisation forbids Actions from creating pull
-          # requests, so open-pr pushes the branch and prints a compare URL, and
-          # the pull request gets opened by a human afterwards. Calling that
-          # "stale" sent people looking for a problem that is the design.
+          # A pushed branch with no pull request used to stop the run right here.
+          # The organisation forbade Actions from opening pull requests, so
+          # open-pr pushed the branch and printed a compare URL for a human to
+          # finish, and stopping was the only way to keep the next daily run
+          # from pushing the same branch again.
           #
-          # It still has to stop, or every daily run would push the same branch
-          # again. So it stops and links the thing that finishes the job.
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            note "Branch ${branch} is pushed and has no pull request yet. Open it: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
-            note "If ${target} is being skipped on purpose, delete that branch and this stops offering it."
-            exit 0
-          fi
-
+          # That setting is on now, so a bare branch is no longer the design; it
+          # is a half-finished run. Stopping on one parked v4.7.2 for a day
+          # behind a step summary nobody had reason to open. The version goes
+          # through instead, open-pr reuses the branch rather than rebuilding a
+          # second one, and from the next run on the OPEN case above catches it.
           echo "version=$target" >> "$GITHUB_OUTPUT"
           echo "Opening a pull request for ${target}, up from ${current}." >> "$GITHUB_STEP_SUMMARY"
 
@@ -285,7 +282,21 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
           git commit -aqm "mastodon: ${CURRENT} to ${VERSION}"
-          git push -qu origin "$branch"
+
+          # detect only sends a version here when no pull request exists for the
+          # branch, so a branch already on origin is the leftover of a run that
+          # pushed and then could not open one. Nothing is reviewed behind it,
+          # and this job has just rebuilt the same edits against current main,
+          # so replacing it loses nothing. A plain push would be rejected as a
+          # non-fast-forward, which is exactly what stranded the last one.
+          # --force-with-lease still refuses if it moved since we looked.
+          remote=$(git ls-remote --heads origin "$branch" | awk '{print $1}')
+          if [ -n "$remote" ]; then
+            echo "  ${branch} is already on origin at ${remote:0:7}; rebuilding it from current main"
+            git push -q --force-with-lease="refs/heads/${branch}:${remote}" -u origin "$branch"
+          else
+            git push -qu origin "$branch"
+          fi
 
           cat > /tmp/body <<EOF
           Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
@@ -321,7 +332,10 @@ jobs:
             {
               echo "### Branch pushed, pull request not opened"
               echo
-              echo "The organisation forbids GitHub Actions from creating pull requests."
+              echo "Opening it failed, which is a real error now rather than the"
+              echo "expected outcome. If it was a permissions refusal, check"
+              echo "\"Allow GitHub Actions to create and approve pull requests\""
+              echo "in the repository and organisation Actions settings."
               echo
               echo "[Open it here](${url})"
             } >> "$GITHUB_STEP_SUMMARY"
