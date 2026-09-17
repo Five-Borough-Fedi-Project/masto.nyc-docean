@@ -269,6 +269,7 @@ jobs:
           done
 
       - name: Open the pull request
+        id: pr
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.detect.outputs.version }}
@@ -308,6 +309,9 @@ jobs:
 
           Release notes classify this as: **${RISK}**
 
+          - [Release notes for ${VERSION}](https://github.com/mastodon/mastodon/releases/tag/${VERSION})
+          - [Every release](https://github.com/mastodon/mastodon/releases), for the versions in between
+
           Read \`docs/upgrade-runbook.md\`. The short version:
 
           - [ ] Read the release notes for every version between ${CURRENT} and ${VERSION}
@@ -322,10 +326,14 @@ jobs:
           - [ ] Re-run the migration status check
           EOF
 
-          if gh pr create --base main --head "$branch" \
+          # The URL goes to the next step, which announces it. gh prints it on
+          # stdout; take the last line in case it ever prints anything else.
+          if pr_url=$(gh pr create --base main --head "$branch" \
                --title "mastodon: ${CURRENT} to ${VERSION}" \
-               --assignee "$ACTOR" --body-file /tmp/body; then
-            echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
+               --assignee "$ACTOR" --body-file /tmp/body); then
+            pr_url=$(printf '%s\n' "$pr_url" | tail -1)
+            echo "url=${pr_url}" >> "$GITHUB_OUTPUT"
+            echo "Pull request opened: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
           else
             url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
             echo "::warning::Could not open the pull request. The branch is pushed."
@@ -340,3 +348,62 @@ jobs:
               echo "[Open it here](${url})"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # The daily run is silent by design and says nothing on the days it has
+      # nothing to do, so the one day it does something reads the same as the
+      # rest. v4.7.2 sat for a day behind a step summary nobody had reason to
+      # open. Nothing announced these pull requests at all.
+      #
+      # Same shape as terraform.yaml's notify-pending: Slack-formatted JSON to
+      # /slack, a format we control, built with jq so release text cannot break
+      # out of the payload. A non-200 warns and exits 0 -- the pull request is
+      # open either way, and a red X here would mean nothing.
+      #
+      # A step rather than a job, unlike that one, because it needs the URL gh
+      # printed and nothing runs behind it. It cannot block anything it does
+      # not already follow.
+      - name: Tell Discord the upgrade pull request is open
+        if: steps.pr.outputs.url != ''
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          CURRENT: ${{ steps.check.outputs.current }}
+          RISK: ${{ steps.notes.outputs.risk }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "::notice::DISCORD_OPS_WEBHOOK is not set, so nothing was sent."
+            exit 0
+          fi
+
+          # The same secret feeds DigitalOcean's alert policies, where it has to
+          # end in /slack. Normalise either spelling so this works whichever way
+          # it was stored, and never echo the result.
+          base="${WEBHOOK%/}"
+          base="${base%/slack}"
+          base="${base%/github}"
+
+          jq -nc \
+            --arg current "$CURRENT" \
+            --arg version "$VERSION" \
+            --arg risk "${RISK:-unknown}" \
+            --arg notes "https://github.com/mastodon/mastodon/releases/tag/${VERSION}" \
+            --arg pr "$PR_URL" \
+            '{text: ("**Mastodon " + $version + " is ready to upgrade to**\n" +
+                     "Up from " + $current + ". Release notes classify it as " +
+                     $risk + ": " + $notes + "\n" +
+                     "Do not merge outside an upgrade window: merging deploys.\n" +
+                     "Its checks do not start on their own, because a bot opened it.\n" +
+                     $pr)}' > payload.json
+
+          code=$(curl -sS -o response.txt -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data @payload.json "${base}/slack")
+
+          if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+            echo "::warning::Discord returned HTTP ${code}. The pull request is open at ${PR_URL}."
+            head -c 300 response.txt
+            exit 0
+          fi
+          echo "Notified Discord: ${PR_URL}" >> "$GITHUB_STEP_SUMMARY"

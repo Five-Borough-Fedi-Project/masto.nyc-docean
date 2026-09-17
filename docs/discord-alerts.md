@@ -33,13 +33,18 @@ handles the familiar ones, pull requests, issues, pushes, releases, reviews, and
 silently accepts and drops the rest. Anything workflow or deployment shaped
 should be assumed not to arrive until seen to arrive.
 
-That matters twice here. Actions cannot open pull requests in this
-organisation, so the upgrade and image-bump workflows push a branch and stop,
-producing no pull request event at all. And a waiting approval is a deployment
-event, which is the category least likely to render.
+That matters here: a waiting approval is a deployment event, which is the
+category least likely to render.
+
+It used to matter twice. Actions could not open pull requests in this
+organisation, so the upgrade and image-bump workflows pushed a branch and
+stopped, producing no pull request event at all. The setting was turned on on
+2026-09-17 and both open their own pull requests now, so a `pull_request` event
+does fire -- repository webhooks deliver for `GITHUB_TOKEN` actions even though
+workflow triggers do not.
 
 Both are covered by posting Slack-shaped JSON ourselves instead, which is a
-format we control. See section 4.
+format we control. See sections 4 and 5.
 
 ## 2. Node memory, disk and CPU, from DigitalOcean
 
@@ -118,6 +123,38 @@ Three decisions worth knowing:
 
 A non-200 from Discord logs a warning and exits 0. The approval is still
 waiting; failing the run would add a red X that means nothing.
+
+## 5. An upgrade pull request, from the mastodon workflow
+
+`mastodon-upgrade.yaml` gained a step on `open-pr`. When the daily run opens a
+version bump it posts the versions, the risk classification, a link to the
+release notes and the pull request.
+
+    **Mastodon v4.7.2 is ready to upgrade to**
+    Up from v4.7.1. Release notes classify it as routine:
+    https://github.com/mastodon/mastodon/releases/tag/v4.7.2
+    Do not merge outside an upgrade window: merging deploys.
+    Its checks do not start on their own, because a bot opened it.
+    https://github.com/.../pull/132
+
+The daily run is silent by design and says nothing on the days it has nothing
+to do, which makes the one day it does something look like all the others.
+v4.7.2 sat for a day behind a step summary nobody had reason to open.
+
+A step rather than a job, unlike section 4's. It needs the URL `gh pr create`
+printed, and nothing runs behind it, so it cannot block anything it does not
+already follow. A non-200 warns and exits 0.
+
+The line about checks is not filler. A pull request opened with `GITHUB_TOKEN`
+does not start workflow runs, so every one of these needs its checks started by
+hand before it can be merged.
+
+**This can arrive twice.** These pull requests now fire a real `pull_request`
+event, so if that event is selected on the repository webhook in section 1,
+Discord renders the pull request itself and this post is the second message.
+Deselect `pull_request` there if that grates -- this one carries the risk
+classification, the release notes and the merge warning, and the generic render
+carries none of them.
 
 ## What each one costs if the URL leaks
 
