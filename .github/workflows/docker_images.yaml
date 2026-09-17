@@ -303,9 +303,10 @@ jobs:
             echo "Changed: \`${FILES}\`"
           } > /tmp/body
 
-          # Creating a pull request needs an organisation setting that is off
-          # here. The branch is what matters, so a refusal is reported and the
-          # run still passes.
+          # Creating a pull request needs an organisation setting that used to be
+          # off here. It is on now, so a refusal is a real error rather than the
+          # usual outcome -- but the branch is still the part that matters, so a
+          # refusal is reported and the run still passes.
           if gh pr create --base main --head "$branch" \
                --title "k8s: point first-party images at ${short}" \
                --assignee "$ACTOR" --body-file /tmp/body; then
@@ -316,8 +317,10 @@ jobs:
             {
               echo "### Branch pushed, pull request not opened"
               echo
-              echo "The organisation forbids GitHub Actions from creating pull"
-              echo "requests, so \`${branch}\` has to be opened by hand."
+              echo "Opening it failed, so \`${branch}\` has to be opened by hand."
+              echo "If it was a permissions refusal, check \"Allow GitHub Actions"
+              echo "to create and approve pull requests\" in the repository and"
+              echo "organisation Actions settings."
               echo
               echo "[Open it here](${url})"
             } >> "$GITHUB_STEP_SUMMARY"
