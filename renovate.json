@@ -9,6 +9,9 @@
   "schedule": [
     "before 9am on monday"
   ],
+  "automergeSchedule": [
+    "at any time"
+  ],
   "prConcurrentLimit": 15,
   "prHourlyLimit": 0,
   "labels": [
@@ -80,6 +83,17 @@
         "pydantic-core"
       ],
       "enabled": false
+    },
+    {
+      "description": "Non-major updates merge themselves once the checks on the pull request are green. platformAutomerge is off deliberately: GitHub's own auto-merge releases a pull request when its required checks pass, and main has no required checks -- the ruleset list is empty -- so it would merge without waiting for anything at all. With it off, Renovate reads the branch status itself and merges only on green. This deploys: the cluster images group edits k8s/ and Flux reconciles main within ten minutes, so an automerged digest is a production rollout nobody watched. That is why the things that must never roll out that way are disabled outright above rather than left to this rule. See docs/renovate.md.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false
     },
     {
       "description": "A major version is a reading task, not a merge task.",

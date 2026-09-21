@@ -65,3 +65,43 @@ actually running: `filefrog/k8s-hacks:pause` and
 which only rejected `:latest` and untagged images. `pause` and a bare major
 version like `16` move under you without the manifest changing, and the check
 now says so.
+
+## Automerging
+
+Non-major updates -- minor, patch and digest -- merge themselves once the checks
+on the pull request are green. Major updates never do. They keep the seven-day
+cooling period and the `major` label, because a major version is a reading task.
+
+**This deploys.** The cluster images group edits `k8s/`, and Flux reconciles
+main within ten minutes, so an automerged nginx or cloudflared digest is a
+production rollout that nobody watched. That is the deliberate trade: the
+alternative was a queue of digest bumps sitting until somebody found a Monday
+for them. What must never roll out this way is disabled outright in the section
+above rather than trusted to this rule, Mastodon first among them.
+
+Four things still wait for a person:
+
+- Anything major.
+- The Mastodon upgrade pull requests. Those come from `mastodon-upgrade.yaml`
+  rather than from Renovate, so nothing here reaches them.
+- The `automation/image-tags-*` pull requests, which come from
+  `docker_images.yaml` and are what actually deploys a first-party image.
+- `GITLEAKS_VERSION`. Its sha256 has to be updated by hand and CI fails until it
+  matches, so automerge never sees a green branch to act on. The pull request
+  waits, which is the behaviour the section above describes rather than a
+  regression of it.
+
+`platformAutomerge` is off on purpose. GitHub's own auto-merge releases a pull
+request when its **required** checks pass, and `main` has no required checks --
+the ruleset list is empty -- so it would merge without waiting for anything.
+With it off, Renovate reads the branch status itself.
+
+`automergeSchedule` is `at any time`, separate from the Monday creation
+schedule. Without it a pull request that went green on Monday morning would sit
+until the following Monday, when Renovate next ran and could merge it.
+
+One consequence worth stating before it happens rather than after. Security
+updates already bypass the weekly schedule, and they bypass this too: a CVE fix
+for a cluster image can be proposed, pass its checks and reach production on a
+Saturday night with nobody present. That is what the vulnerability block is for,
+but it is a different thing from a Monday morning review.
