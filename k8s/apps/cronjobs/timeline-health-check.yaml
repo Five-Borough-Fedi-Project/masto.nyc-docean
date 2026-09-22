@@ -24,7 +24,7 @@ spec:
           containers:
             - name: timeline-health
               # TODO: Update with actual image registry path
-              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/timeline-health:611c4be581dfa425906fdd7cfc168d5d71113fde
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/timeline-health:b566d2e86b88e2b91b926887d8a23441cd9e1792
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
