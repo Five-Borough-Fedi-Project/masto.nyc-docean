@@ -78,6 +78,18 @@
       "groupName": "ci and terraform"
     },
     {
+      "description": "Everything the two first-party images are built from, in one pull request: the requirements files, the Poetry files and the python base image digests under docker/. This grouping is about rollouts rather than review effort. Each of these merges rebuilds an image, and every rebuild opens an automation/image-tags pull request to deploy it, so five separate bumps on one Monday meant five rollouts to approve -- six of them stacked up between 2026-09-22 and 09-29 once these started merging themselves. Grouped, a Monday is one pull request, one rebuild and one rollout. Majors are excluded so a single one cannot hold the rest of the group back from automerging; they arrive separately, which is what they deserve.",
+      "matchFileNames": [
+        "docker/**"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "first-party image dependencies"
+    },
+    {
       "description": "pydantic pins pydantic-core to an exact version, so any independent bump of it is wrong by construction. Renovate proposed 2.48.0 against pydantic 2.13.5, which pins 2.46.5, and the image would not build. It is a transitive dependency that happens to be written out in a fully resolved requirements file; it moves when pydantic moves.",
       "matchPackageNames": [
         "pydantic-core"
