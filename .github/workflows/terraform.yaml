@@ -51,7 +51,7 @@ permissions:
   pull-requests: write
 
 env:
-  TOFU_VERSION: 1.12.6
+  TOFU_VERSION: 1.13.1
   # The S3 backend reads Spaces credentials from the standard AWS variables.
   AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_KEY }}
