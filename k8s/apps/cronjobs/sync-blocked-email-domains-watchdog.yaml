@@ -1,12 +1,17 @@
 # Does anyone know whether sync-blocked-email-domains ran?
 #
-# Until 2026-09-05 the answer was the Vector -> BetterStack pipeline. That was
-# removed with the rest of the log shipping, and nothing collects pod logs now,
-# so a CronJob that fails at 03:00 fails silently: it is in `kubectl get jobs`
-# for whoever thinks to look, and nowhere else. sync-blocked-email-domains is
-# the one that matters most of them -- it holds a Mastodon API token, runs about
-# two hours, and had a real failure on 2026-08-31 that retried for most of a day
-# before anyone noticed.
+# Until 2026-09-05 the answer was the Vector -> BetterStack Logs pipeline. That
+# was removed with the rest of the log shipping, and nothing collects pod logs
+# now, so a CronJob that fails at 03:00 fails silently: it is in
+# `kubectl get jobs` for whoever thinks to look, and nowhere else.
+#
+# Not every job here is in that position, which is worth saying so nobody builds
+# a second one of these unnecessarily. postgres-backup and timeline-health-check
+# send BetterStack Uptime heartbeats -- a different product from the Logs one,
+# untouched by that teardown. Of the jobs with nothing at all,
+# sync-blocked-email-domains is the one that matters most: it holds a Mastodon
+# API token, runs about two hours, and had a real failure on 2026-08-31 that
+# retried for most of a day before anyone noticed.
 #
 # kube-state-metrics already publishes the fact. It has run in kube-system since
 # the teardown with no consumer, kept because whatever replaced that pipeline

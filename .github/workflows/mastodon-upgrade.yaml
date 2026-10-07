@@ -10,6 +10,13 @@
 # merge it during the window, after the migrations have run.
 #
 # scale_for_upgrade.sh stays. It is the manual half.
+#
+# There is deliberately no app.kubernetes.io/version label for this to update.
+# Sixteen objects carried "v4.7.0" while v4.7.3 was running, because kustomize's
+# image transformer rewrites tags and not labels, and nothing here rewrote them
+# either. They were dropped rather than automated: the image tag is already the
+# truth, and a label that lies is worse than no label. Do not add label
+# rewriting back in.
 name: Mastodon upgrade PR
 
 on:

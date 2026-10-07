@@ -15,7 +15,6 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.7.0"
     app.kubernetes.io/component: sidekiq-bulk
     app.kubernetes.io/part-of: rails
 spec:
