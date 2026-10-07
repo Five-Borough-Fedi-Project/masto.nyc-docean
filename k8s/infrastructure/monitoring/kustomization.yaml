@@ -1,8 +1,12 @@
 # kube-state-metrics, in kube-system.
 #
-# It currently has no consumer. Vector scraped it until 2026-09-05, and it stays
-# because whatever replaces that pipeline will want it and removing it would
-# only have to be undone. See docs/logging-teardown.md.
+# Vector scraped it until 2026-09-05 and nothing did afterwards. It kept its
+# place because whatever replaced that pipeline would want it, and removing it
+# would only have to be undone.
+#
+# It has one consumer again: sync-blocked-email-domains-watchdog reads
+# kube_cronjob_status_last_successful_time from it, because a CronJob failure is
+# otherwise invisible now. See docs/logging-teardown.md and docs/blocklists.md.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

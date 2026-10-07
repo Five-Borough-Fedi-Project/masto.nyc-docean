@@ -10,8 +10,13 @@
 # Nothing in a GitOps or CI setup would have caught that: it is database state,
 # not Kubernetes state. This job is the check that would have. It runs
 # `db:migrate:status` with the skip flag explicitly unset and fails if any
-# migration is still `down`. A failing CronJob is visible in the cluster and in
-# the Vector -> BetterStack log pipeline.
+# migration is still `down`.
+#
+# A failing CronJob is visible in `kubectl get jobs` and nowhere else. This said
+# it also reached the Vector -> BetterStack pipeline, which was true until that
+# pipeline was removed on 2026-09-05; nothing collects pod logs now, so a
+# failure here waits to be looked for. sync-blocked-email-domains-watchdog is
+# the pattern for fixing that per job. See docs/logging-teardown.md.
 #
 # Read-only: db:migrate:status only reads schema_migrations. It connects on the
 # direct port (masto-direct-db), not the pgbouncer pool, for consistency with
