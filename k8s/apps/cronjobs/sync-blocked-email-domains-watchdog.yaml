@@ -1,0 +1,160 @@
+# Does anyone know whether sync-blocked-email-domains ran?
+#
+# Until 2026-09-05 the answer was the Vector -> BetterStack pipeline. That was
+# removed with the rest of the log shipping, and nothing collects pod logs now,
+# so a CronJob that fails at 03:00 fails silently: it is in `kubectl get jobs`
+# for whoever thinks to look, and nowhere else. sync-blocked-email-domains is
+# the one that matters most of them -- it holds a Mastodon API token, runs about
+# two hours, and had a real failure on 2026-08-31 that retried for most of a day
+# before anyone noticed.
+#
+# kube-state-metrics already publishes the fact. It has run in kube-system since
+# the teardown with no consumer, kept because whatever replaced that pipeline
+# would want it. This is that consumer, for one metric:
+# kube_cronjob_status_last_successful_time.
+#
+# Scope: one CronJob by name, because that is the one that was asked about. The
+# CRONJOB variable is the only thing that ties it to that job; the same manifest
+# copied with a different name covers any of the others.
+#
+# The timing arithmetic, since the numbers are not obvious. The watched job
+# starts at 03:00 and takes about two hours, with a four-hour deadline, so on a
+# good day it last succeeded between 05:00 and 07:00. Checking at 09:00 puts the
+# age at two to four hours when all is well, and at twenty-six to twenty-eight
+# when a single night was missed. Twenty hours sits clear of both.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-blocked-email-domains-watchdog
+  namespace: mastodon
+spec:
+  schedule: 0 9 * * *
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  # Three, so a run of bad nights is still legible after the fact. This job is
+  # the thing that notices, so its own history is worth more than the watched
+  # job's.
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      # No retries. A retry would post to Discord twice for one bad night.
+      backoffLimit: 0
+      template:
+        metadata:
+          name: sync-blocked-email-domains-watchdog
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: watchdog
+              # Already pinned in k8s/apps/debug/dbg.yaml, so it is one image to
+              # keep current rather than two, and Renovate's cluster images
+              # group already tracks it. curl and its CA bundle are what this
+              # needs; alpine has neither without installing them at runtime.
+              image: nicolaka/netshoot@sha256:b09d9b21381f47a79b3cbcb30da25266dc17186ea00ae65e99fdc51396f48e70
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  memory: "32Mi"
+                  cpu: "10m"
+                limits:
+                  memory: "128Mi"
+              env:
+                # Optional on purpose. Terraform creates this secret only when
+                # var.discord_ops_webhook is set, matching monitoring.tf, so
+                # with no webhook configured the job still runs and still fails
+                # loudly in the cluster -- it just has nowhere to post.
+                - name: WEBHOOK
+                  valueFrom:
+                    secretKeyRef:
+                      name: discord-ops-webhook
+                      key: url
+                      optional: true
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+
+                  CRONJOB="sync-blocked-email-domains"
+                  NS="mastodon"
+                  MAX_AGE=72000
+                  METRICS="http://kube-state-metrics.kube-system.svc.cluster.local:8080/metrics"
+
+                  if ! curl -sf --max-time 30 "$METRICS" > /tmp/metrics; then
+                    echo "FAIL: could not scrape kube-state-metrics at $METRICS"
+                    echo "That is its own problem: without it this check is blind."
+                    exit 1
+                  fi
+
+                  # Prometheus writes floats in scientific notation
+                  # (1.7601234e+09), which awk parses and shell arithmetic does
+                  # not. Hence awk for the conversion.
+                  line=$(grep "^kube_cronjob_status_last_successful_time{" /tmp/metrics \
+                           | grep "cronjob=\"${CRONJOB}\"" \
+                           | grep "namespace=\"${NS}\"" || true)
+
+                  if [ -n "$line" ]; then
+                    last=$(printf '%s\n' "$line" | awk '{printf "%d", $NF}')
+                  else
+                    last=0
+                  fi
+
+                  now=$(date +%s)
+
+                  if [ "$last" -eq 0 ]; then
+                    detail="No successful run has ever been recorded for it."
+                    age_h="never"
+                  else
+                    age=$(( now - last ))
+                    age_h=$(( age / 3600 ))
+                    detail="Last success was ${age_h}h ago, at $(date -u -d "@${last}" '+%Y-%m-%d %H:%M UTC' 2>/dev/null || echo "unix ${last}")."
+                    if [ "$age" -le "$MAX_AGE" ]; then
+                      echo "OK: ${CRONJOB} succeeded ${age_h}h ago."
+                      exit 0
+                    fi
+                  fi
+
+                  echo "FAIL: ${CRONJOB} has not succeeded within $(( MAX_AGE / 3600 ))h."
+                  echo "$detail"
+
+                  if [ -z "${WEBHOOK:-}" ]; then
+                    echo "No webhook configured, so nothing was sent."
+                    echo "Set var.discord_ops_webhook and apply, per kubernetes-secrets.tf."
+                    exit 1
+                  fi
+
+                  # Same normalisation as terraform.yaml and
+                  # mastodon-upgrade.yaml: one secret feeds the DigitalOcean
+                  # alert policies, where it must end in /slack. Never echo it.
+                  base="${WEBHOOK%/}"
+                  base="${base%/slack}"
+                  base="${base%/github}"
+
+                  # Built with printf rather than jq, which this image may not
+                  # carry. Safe here because every interpolated value is an
+                  # integer or a literal from this file: there is no external
+                  # text to escape out of the payload. Do not interpolate
+                  # anything scraped from the metrics endpoint into this.
+                  text="**${CRONJOB} has not run successfully**\\n${detail}\\nIt holds a Mastodon API token and takes about two hours, scheduled 03:00 UTC daily.\\nNothing collects pod logs, so the run itself is only visible in the cluster: kubectl -n ${NS} get jobs"
+                  printf '{"text":"%s"}' "$text" > /tmp/payload.json
+
+                  code=$(curl -sS -o /tmp/response -w '%{http_code}' \
+                    -X POST -H 'Content-Type: application/json' \
+                    --data @/tmp/payload.json "${base}/slack")
+
+                  if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+                    echo "Discord returned HTTP ${code}; the failure above still stands."
+                    head -c 300 /tmp/response || true
+                  else
+                    echo "Notified Discord."
+                  fi
+
+                  # Non-zero regardless of whether Discord took it, so the
+                  # cluster carries the signal too.
+                  exit 1

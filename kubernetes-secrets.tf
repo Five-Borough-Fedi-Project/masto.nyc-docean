@@ -63,6 +63,39 @@ resource "kubernetes_secret_v1" "mastodon_env_tf" {
   }
 }
 
+### The Discord webhook, for workloads that need to say something.
+###
+### Everything else that posts to Discord does it from outside the cluster --
+### the DigitalOcean alert policies in monitoring.tf, the Cloudflare policy, the
+### terraform workflow -- so until now the URL never had to be in Kubernetes.
+### sync-blocked-email-domains-watchdog is the first thing inside the cluster
+### that needs it: CronJob failures stopped being visible anywhere when the log
+### pipeline was removed on 2026-09-05.
+###
+### count follows local.discord_enabled, the same guard monitoring.tf uses, so
+### with no webhook set this creates nothing and the watchdog's secretRef is
+### declared optional. It still runs and still fails in the cluster; it just has
+### nowhere to post.
+###
+### The URL is a credential. sensitive = true keeps it out of plan output but
+### not out of state, which lives in the private Spaces bucket next to the
+### database password. Same trust boundary, stated so nobody assumes otherwise.
+### See docs/discord-alerts.md.
+resource "kubernetes_secret_v1" "discord_ops_webhook" {
+  count = local.discord_enabled
+
+  metadata {
+    name      = "discord-ops-webhook"
+    namespace = var.masto_ns
+  }
+
+  type = "Opaque"
+
+  data = {
+    "url" = var.discord_ops_webhook
+  }
+}
+
 
 moved {
   from = kubernetes_config_map.mastodon_direct_db

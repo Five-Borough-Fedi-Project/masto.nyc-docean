@@ -15,4 +15,5 @@ resources:
   - preview-cards-remove.yaml
   - statuses-remove.yaml
   - sync-blocked-email-domains.yaml
+  - sync-blocked-email-domains-watchdog.yaml
   - timeline-health-check.yaml

@@ -31,9 +31,15 @@ post-deployment migrations spanning three years that had never run, because
 `SKIP_POST_DEPLOYMENT_MIGRATIONS` was permanently set. A person reading release notes
 finds that. A bot comparing version strings never would.
 
-**Images this repository builds.** `welcome-bot`, `timeline-health` and
-`sync-blocked-email-domains` are tagged with the commit that produced them.
-There is no upstream to check.
+**Images this repository builds.** `welcome-bot` and `timeline-health` are
+tagged with the commit that produced them. There is no upstream to check.
+
+`sync-blocked-email-domains` is caught by the same rule but is a different case,
+and the rule is doing nothing useful for it. `docker/` holds only `welcome-bot`
+and `timeline-health`, so `docker_images.yaml` never builds it and there is no
+commit tag to follow: its manifest pins it by digest instead. Wherever that
+image was built, it was not here, and nothing in this repository can rebuild or
+update it. See docs/blocklists.md.
 
 ## What it will do
 
