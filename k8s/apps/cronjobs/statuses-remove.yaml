@@ -21,7 +21,6 @@ metadata:
   labels:
     app.kubernetes.io/name: mastodon
     app.kubernetes.io/instance: mastodon
-    app.kubernetes.io/version: "v4.7.0"
 spec:
   schedule: 0 5 * * 3
   concurrencyPolicy: Forbid

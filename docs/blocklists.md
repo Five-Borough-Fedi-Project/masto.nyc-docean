@@ -83,8 +83,19 @@ Two details worth knowing before trusting it:
   two to four hours; one missed night makes it twenty-six to twenty-eight.
   Twenty sits clear of both.
 
-The same manifest with a different `CRONJOB` covers any of the other eight
-cronjobs, which are all equally invisible. None of them is watched.
+The same manifest with a different `CRONJOB` covers any of the others that need
+it, and fewer need it than first appears. `postgres-backup` and
+`timeline-health-check` both send a BetterStack **Uptime** heartbeat, which is a
+different product from the BetterStack **Logs** that Vector fed and was not
+touched by that teardown. The backup's is the last thing in
+`/run.sh && /postgres.sh`, so it only fires on success: a failed or skipped
+night shows up as a missed heartbeat rather than as nothing at all.
+
+What has no monitoring of any kind is the six weekly maintenance jobs -- the
+three media ones, `preview-cards-remove`, `statuses-remove` and
+`migration-status`. The last is the uncomfortable one. It exists because twenty
+post-deployment migrations were silently skipped for three years, and a check
+nobody ever hears from is the same shape of problem it was built to catch.
 
 ## The fediverse blocklist
 
