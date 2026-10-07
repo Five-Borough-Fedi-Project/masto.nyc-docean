@@ -43,6 +43,16 @@ kube-state-metrics, metrics-server, the backup and repack images, and the two
 debugging images. GitHub Actions and the DigitalOcean Terraform provider are
 grouped separately.
 
+What the two first-party images are built from is grouped as well, under
+`first-party image dependencies`: the requirements files, the Poetry files and
+the `python:3.14` base image digests under `docker/`. That one is about rollouts
+rather than review effort. Each of those merges rebuilds an image, and every
+rebuild opens an `automation/image-tags-*` pull request to deploy it, so five
+separate bumps on a Monday meant five rollouts to approve. Six stacked up between
+2026-09-22 and 09-29. Grouped, a Monday is one pull request, one rebuild and one
+rollout. Majors are excluded from the group so a single one cannot hold the rest
+back from automerging.
+
 Two versions pinned as workflow environment variables are tracked by custom
 regex managers, since nothing else would find them: `TOFU_VERSION` and
 `GITLEAKS_VERSION`.
