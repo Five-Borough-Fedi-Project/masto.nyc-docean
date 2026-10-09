@@ -1,0 +1,61 @@
+# Which lists masto.nyc federates against, and how they are merged.
+#
+# This file is deliberately incomplete. Two things are added at runtime by
+# .github/workflows/blocklist-sync.yaml and must never be committed here:
+#
+#   allowlist_url_sources        needs an absolute path, which differs per runner
+#   blocklist_instance_destinations  carries the admin API token
+#
+# The token is the reason. The legacy job in the archived masto.nyc repo put it
+# inline in a TOML file inside a ConfigMap, where it showed up in
+# `kubectl describe`. Keeping the destination out of the committed config means
+# this file can stay in a public repository.
+
+# IFTAS, https://about.iftas.org/library/denylist-resources/
+#
+# DNI is curated and recommended for defederation. AUD is spam and abandoned
+# servers. CARIAD is consensus-based over observed network blocks, published at
+# 51/66/80% thresholds.
+#
+# 66% is the chosen threshold: "we defederate what two thirds of the observed
+# network defederates" is a policy that can be written down and defended. The
+# alternative considered was the Omnibus file, which is DNI + AUD + CARIAD 51%
+# and 289 domains against this combination's smaller set. Widening later is one
+# URL change; explaining an over-block is not.
+#
+# Replacing the 66% URL with the 51% one below makes this equivalent to Omnibus:
+#   https://docs.google.com/spreadsheets/d/1qSY6DMDDRSozdeSnqm1vhOEwHRhNL5WPr8V1UcpAuI4/gviz/tq?tqx=out:csv&gid=0&range=A:F
+#
+# These are Google Sheets endpoints. They send no ETag and
+# `cache-control: no-store`, so conditional requests are impossible and the
+# workflow diffs the fetched content against blocklist/snapshot.csv instead.
+# They can also serve an HTML error page under throttling, which is what
+# scripts/check-blocklist.py exists to catch.
+#
+# format is mastodon_csv, not csv. IFTAS publishes these with Mastodon's own
+# export header, which prefixes every field name with '#' ('#domain',
+# '#severity'). fediblockhole's plain `csv` parser wants unprefixed names and
+# fails with a bare "missing required argument: 'domain'" on these files, which
+# is not a helpful error. The allowlist below is a plain `csv` because this
+# repository writes it.
+blocklist_url_sources = [
+  { url = 'https://docs.google.com/spreadsheets/d/1ZdYPSmQH0rO4K9Pp1AmbRu9G1kFnmjuj0X-4bZ4x3hI/gviz/tq?tqx=out:csv&gid=0&range=A:F', format = 'mastodon_csv' },
+  { url = 'https://docs.google.com/spreadsheets/d/1GncL-pWPqadit7MvWqm4mxpX-hZ77HrLpAU2K63F29c/gviz/tq?tqx=out:csv&gid=0&range=A:F', format = 'mastodon_csv' },
+  { url = 'https://docs.google.com/spreadsheets/d/1gcSZUJ76p3gpiKpfNsBerfybmnlHtPVJr6s3GMtcfKk/gviz/tq?tqx=out:csv&gid=0&range=A:F', format = 'mastodon_csv' },
+]
+
+# min, not max. Where two lists disagree on how hard to hit a domain, take the
+# gentler one. Every row in all three lists is currently `suspend`, so this
+# changes nothing today; it decides what happens the first time a list adds a
+# `silence` entry, and the gentler default is the one that does not need
+# explaining afterwards.
+mergeplan = 'min'
+
+# Carried through so a moderator reading Federation in the admin UI can see
+# which list put a domain there. IFTAS stamps its tier into public_comment
+# (`iftas:cariad66`, `iftas:dni`), which is the whole value of importing it.
+# Extras only. domain and severity are always imported and exported; listing
+# them here again duplicates the columns in the output
+# (domain,severity,domain,severity,public_comment).
+import_fields = ['public_comment']
+export_fields = ['public_comment']
