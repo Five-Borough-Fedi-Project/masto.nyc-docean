@@ -99,32 +99,133 @@ nobody ever hears from is the same shape of problem it was built to catch.
 
 ## The fediverse blocklist
 
-`policies.md` in the website repository says the instance subscribes to the
-[oliphant.social Tier 0 blocklist](https://codeberg.org/oliphant/blocklists/),
-and that moderators block additional servers at their discretion.
+`.github/workflows/blocklist-sync.yaml`. Three IFTAS denylists are merged
+nightly, the allowlist is applied, and the result is proposed as a pull request.
+Merging it pushes the reviewed list to the instance.
 
-**There is no automation for any of that.** No reference to oliphant, Tier 0,
-`domain_blocks` or defederation exists anywhere in this repository. Whatever
-keeps the server's domain blocks aligned with Tier 0 is a person doing it by
-hand, or it is not happening.
+    DNI          curated, IFTAS-recommended defederation      95 domains
+    AUD          spammers and abandoned servers               49 domains
+    CARIAD 66%   blocked by two thirds of the observed network 115 domains
+    ----------------------------------------------------------------------
+    merged, minus the allowlist                               204 domains
 
-That is recorded here rather than fixed, deliberately. Automating it would mean
-a job that blocks servers without review, and the blast radius is other
-people's conversations: a bad entry, or an upstream list that moves in a
-direction the moderators would not have chosen, severs real follow
-relationships. `policies.md` already frames server blocking as "at the
-moderators' discretion", which is a policy position, and a cron job is a poor
-way to hold one.
+### Why IFTAS, after two false starts
 
-If it is worth automating later, the shape is roughly:
+The job this replaces subscribed to oliphant's Tier 0 list. That list has not
+changed since 2026-03-29 and the repository behind it has had no commit of any
+kind since 2026-04-15, so restoring the old job as written would have pinned the
+instance to a blocklist frozen in March.
 
-- Pull the Tier 0 CSV, which is versioned on Codeberg.
-- Diff it against `/api/v1/admin/domain_blocks`.
-- **Open a pull request, or post the diff to Discord, rather than applying it.**
-  A human approves the additions.
-- Never remove a block automatically. Unblocking is a decision, and
-  `policies.md` already points people at the issue tracker for it.
+Garden Fence was the next candidate and is better maintained, but it had not
+published since 2026-08-09 against a stated weekly cadence, and it is explicitly
+one instance's judgement: only domains blocked by sunny.garden, filtered through
+unnamed reference servers. Its README says plainly that it is not a neutral
+survey.
 
-That keeps the list current without handing defederation to a timer. It is a
-larger piece of work than it looks, mostly because of the reconciliation rules
-rather than the fetching.
+IFTAS is an organisation rather than an admin, was posting in September 2026,
+and publishes its consensus thresholds as numbers. That last part is the real
+reason: "we defederate what two thirds of the observed network defederates" is a
+policy that can be written down, argued with and changed. "We use somebody's
+list" is not.
+
+### The threshold, and how to widen it
+
+66% is the chosen tier. The alternative considered was the Omnibus file, which
+is DNI + AUD + CARIAD **51%** and 289 domains against this combination's 204.
+Replacing the CARIAD 66% URL in `blocklist/sources.toml` with the 51% one makes
+this equivalent to Omnibus; the URL is in a comment there. 80% also exists, at
+48 domains, for a far more conservative position.
+
+Widening is one URL. Explaining an over-block is not, which is why the first
+restored run is the narrower of the two that were on the table.
+
+### Exceptions
+
+`blocklist/allowlist.csv`. Any domain listed there is dropped from the merged
+list regardless of which source proposed it. Two entries today:
+
+- `masto.nyc`, because blocking ourselves would break federation for our own
+  users.
+- `threads.net`, by moderator decision on 2026-10-09. It is in CARIAD 66% as
+  `iftas:cariad66`, severity `suspend`, so without this entry adopting these
+  lists would have suspended Threads. It is in the Omnibus file too, via the
+  51% tier, so the exception is needed whichever threshold is chosen.
+
+Add a row to allow another domain. The `severity` and `public_comment` columns
+are there for the human reading the diff; fediblockhole only reads `domain`.
+
+**Matching is exact.** fediblockhole deletes the merged entry whose domain
+string matches, so an entry for `example.com` does not cover
+`social.example.com`. These lists carry root domains, so that is fine in
+practice, but a list adding a subdomain variant would need its own row.
+
+For a one-off that should not be committed, `fediblock-sync --allow DOMAIN`
+takes the same argument on the command line.
+
+**One adjacent case, flagged rather than decided.** `mostr.pub`, a Nostr bridge,
+is in all three CARIAD tiers at `iftas:cariad80`, so it is currently blocked by
+this configuration. Garden Fence deliberately excludes bridges as out of scope;
+IFTAS includes them. Nobody has decided which position this instance holds. If
+bridges should be reachable, `mostr.pub` belongs in the allowlist.
+
+### What it will not do
+
+**It never unblocks anything.** fediblockhole has a `delete_block` function and
+no code path that calls it; `push_blocklist` adds new blocks and updates
+existing ones. A domain dropping off the upstream lists therefore stays blocked
+here until a human removes it in the admin UI. That is the safe direction, and
+it means the pull request's "removed" list is informational rather than an
+instruction.
+
+**It never suspends a domain somebody here follows.** The destination carries
+`max_followed_severity = 'silence'`. Every row in all three lists is `suspend`,
+and a suspend severs existing follow relationships; this caps the severity at
+silence where a follow exists. The old job did the same, and it is the single
+setting that makes automating this defensible at all.
+
+**It never applies without review.** The nightly run proposes; merging applies.
+The apply step pushes the committed `blocklist/snapshot.csv` rather than
+re-fetching, so what reaches the instance is exactly what was reviewed, even if
+IFTAS publishes something new in between.
+
+### Refusing a bad fetch
+
+IFTAS serves these from Google Sheets. That endpoint sends
+`cache-control: no-store` and no `ETag`, so there is no conditional request to
+make -- the workflow fetches the whole thing and diffs it against the committed
+snapshot. It can also serve an HTML error page when throttled, and a naive diff
+of that against 204 committed domains reads as *unblock everything*.
+
+`scripts/check-blocklist.py` is what stands in the way. Nothing becomes a
+proposal until it passes:
+
+- the header is exactly `domain,severity,public_comment`
+- at least 50 domains, a floor well under the real size and well over an error
+  page
+- IFTAS's own `cariad.invalid` canary row survived the fetch and the merge
+- no allowlisted domain appears in the output, so a silently unapplied allowlist
+  fails loudly instead of suspending a domain a moderator allowed
+- no more than 10% of the committed list would stop being blocked
+
+Each of those was tested against a fabricated failure: an HTML error page, a
+truncated sheet, a stripped canary, a leaked allowlist entry, and a 70% deletion.
+All five are rejected; a believable week of one addition and one removal passes.
+
+### Confirming it ran
+
+Ask the instance for the canary. Every IFTAS list carries a block on
+`cariad.invalid`, a domain in an invalid TLD that exists only to be a sentinel.
+If it appears under **Moderation > Federation**, a push landed. That is cheaper
+and more direct than any watchdog, and it is why this job has none.
+
+### Still outstanding
+
+`MASTODON_ADMIN_TOKEN` does not exist yet. Until it is set as a repository
+secret, the apply step logs a notice and exits 0, so merging a proposal commits
+the snapshot and pushes nothing. The token needs the `admin:write:domain_blocks`
+and `admin:read:domain_blocks` scopes.
+
+It is a secret rather than a config value on purpose. The legacy job put this
+token inline in a TOML file inside a ConfigMap, where `kubectl describe` would
+print it; this repository is public, and that is the mistake the secrets work of
+2026-08 existed to end.

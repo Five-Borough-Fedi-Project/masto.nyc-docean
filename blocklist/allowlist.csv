@@ -1,0 +1,3 @@
+domain,severity,public_comment
+masto.nyc,noop,"Never block ourselves. Present in CARIAD as the iftas:canary row is not, but a self-block would break federation for our own users."
+threads.net,noop,"Moderator decision, 2026-10-09. Listed in CARIAD 66% as iftas:cariad66, suspend. Allowed deliberately."
