@@ -1,0 +1,213 @@
+# Keeps masto.nyc's domain blocks in step with the IFTAS denylists.
+#
+# This replaces a job that was lost. The archived masto.nyc repository ran
+# `fediblock-sync` as a weekly in-cluster CronJob against oliphant's Tier 0
+# list. It did not survive the migration here, nothing recorded dropping it,
+# and policies.md went on promising a subscription the infrastructure had
+# stopped honouring. See docs/blocklists.md.
+#
+# Three things are different this time.
+#
+# It is a workflow rather than a CronJob. The old job needed an image from a
+# private third-party registry, unpinned, behind an imagePullSecret -- which is
+# most of why it did not come across. Nothing here needs the cluster: this talks
+# to the Mastodon admin API over HTTPS, so a pip install and a runner are the
+# whole dependency.
+#
+# Merging is the review. The daily run proposes; a human merges. Defederation
+# severs other people's conversations, and policies.md frames server blocking as
+# the moderators' discretion, which a timer is a poor way to hold.
+#
+# The branch name is fixed, so a second proposal force-pushes over the first
+# instead of stacking. Six image-tags pull requests piled up in September doing
+# the opposite, and clearing them by hand needed a per-image supersession
+# analysis. One long-lived branch has no pile to clear.
+name: Blocklist sync
+
+on:
+  schedule:
+    # 11:00 UTC daily. Clear of the backup (01:30), sync-blocked-email-domains
+    # (03:00), its watchdog (09:00), and the Mastodon upgrade check (13:00).
+    # The lists move weekly at most, so daily is already more often than the
+    # sources change; it costs one 14KB fetch per list.
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'blocklist/snapshot.csv'
+      - 'blocklist/allowlist.csv'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  # Pinned. Unpinned tooling is what made the old job unreproducible.
+  FEDIBLOCKHOLE_VERSION: '0.4.6'
+
+jobs:
+  # Fetch, merge, apply the allowlist, and propose the result if it differs
+  # from what is committed.
+  propose:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # No setup-python: the runner already has one, and this repository pins
+      # every action by digest, so adding a dependency means another digest to
+      # keep current for no gain. A venv rather than a bare pip install, which
+      # newer runner images refuse without --break-system-packages.
+      - name: Install fediblockhole
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/fbh
+          /tmp/fbh/bin/pip install --quiet "fediblockhole==${FEDIBLOCKHOLE_VERSION}"
+          /tmp/fbh/bin/fediblock-sync --version
+
+      # The committed config carries no allowlist path and no destination. The
+      # path has to be absolute for a file:// URL and differs per runner; the
+      # destination carries the admin token and must not be in a public repo.
+      - name: Build the runtime config
+        run: |
+          set -euo pipefail
+          cp blocklist/sources.toml /tmp/runtime.toml
+          cat >> /tmp/runtime.toml <<EOF
+
+          allowlist_url_sources = [
+            { url = 'file://${GITHUB_WORKSPACE}/blocklist/allowlist.csv', format = 'csv' },
+          ]
+          EOF
+
+      - name: Merge the lists and apply the allowlist
+        run: |
+          set -euo pipefail
+          /tmp/fbh/bin/fediblock-sync -c /tmp/runtime.toml \
+            --no-push-instance --no-fetch-instance \
+            -o /tmp/candidate.csv --loglevel info
+
+      # Nothing becomes a proposal until this passes. IFTAS serves from Google
+      # Sheets, which can return an HTML error page instead of CSV; diffed
+      # naively that reads as "unblock everything".
+      - name: Refuse a bad fetch
+        id: check
+        run: |
+          set -euo pipefail
+          python3 scripts/check-blocklist.py /tmp/candidate.csv blocklist/snapshot.csv \
+            | tee /tmp/report.txt
+
+      - name: Propose it, if anything changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          if diff -q blocklist/snapshot.csv /tmp/candidate.csv >/dev/null; then
+            echo "The merged list matches blocklist/snapshot.csv. Nothing to do." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          branch="automation/blocklist"
+          cp /tmp/candidate.csv blocklist/snapshot.csv
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add blocklist/snapshot.csv
+          git commit -qm "blocklist: sync from the IFTAS denylists"
+
+          # Fixed branch, so re-propose replaces rather than stacks. Nothing is
+          # reviewed on it until a pull request is open, and once one is open
+          # this updates it in place.
+          git push -qf origin "$branch"
+
+          {
+            echo "The IFTAS denylists have changed. \`blocklist/snapshot.csv\` is the"
+            echo "merged result after \`blocklist/allowlist.csv\` is applied."
+            echo
+            echo "**Merging this deploys it.** The apply job pushes the reviewed snapshot"
+            echo "to the instance over the admin API. Blocks are added and existing ones"
+            echo "may be made more severe; nothing is ever unblocked, because"
+            echo "fediblockhole has no code path that deletes a domain block."
+            echo
+            echo "Exceptions live in \`blocklist/allowlist.csv\`. Add a domain there to"
+            echo "have it dropped from every list."
+            echo
+            echo '```'
+            cat /tmp/report.txt
+            echo '```'
+          } > /tmp/body
+
+          if [ -z "$(gh pr list --state open --head "$branch" --json number --jq '.[0].number' 2>/dev/null || true)" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "blocklist: sync from the IFTAS denylists" \
+              --assignee "$ACTOR" --body-file /tmp/body \
+              && echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Updated the existing pull request for ${branch}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # Push the reviewed snapshot to the instance.
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # No setup-python: the runner already has one, and this repository pins
+      # every action by digest, so adding a dependency means another digest to
+      # keep current for no gain. A venv rather than a bare pip install, which
+      # newer runner images refuse without --break-system-packages.
+      - name: Install fediblockhole
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/fbh
+          /tmp/fbh/bin/pip install --quiet "fediblockhole==${FEDIBLOCKHOLE_VERSION}"
+          /tmp/fbh/bin/fediblock-sync --version
+
+      # The source here is the committed snapshot, not the remote lists. What
+      # gets pushed is exactly what was reviewed in the pull request, even if
+      # IFTAS has published something new in the meantime.
+      #
+      # The allowlist is applied again rather than trusted. The snapshot already
+      # excludes allowlisted domains, but someone adding an exception without
+      # regenerating the snapshot should still get the exception.
+      #
+      # max_followed_severity = 'silence' is the guard that matters. Every entry
+      # in these lists is `suspend`, and a suspend severs existing follow
+      # relationships. This caps the severity at silence for any domain somebody
+      # here already follows, which is what the old job did too.
+      - name: Push to the instance
+        env:
+          TOKEN: ${{ secrets.MASTODON_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::notice::MASTODON_ADMIN_TOKEN is not set, so nothing was pushed."
+            echo "The snapshot is committed and will apply once the secret exists." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          cat > /tmp/apply.toml <<EOF
+          blocklist_url_sources = [
+            { url = 'file://${GITHUB_WORKSPACE}/blocklist/snapshot.csv', format = 'csv' },
+          ]
+          allowlist_url_sources = [
+            { url = 'file://${GITHUB_WORKSPACE}/blocklist/allowlist.csv', format = 'csv' },
+          ]
+          blocklist_instance_destinations = [
+            { domain = 'masto.nyc', token = '${TOKEN}', max_followed_severity = 'silence' },
+          ]
+          import_fields = ['public_comment']
+          mergeplan = 'min'
+          EOF
+
+          /tmp/fbh/bin/fediblock-sync -c /tmp/apply.toml --loglevel info \
+            --override-private-comment "masto.nyc blocklist-sync $(date -u +%Y-%m-%d)"
+
+          echo "Pushed the reviewed snapshot to masto.nyc." >> "$GITHUB_STEP_SUMMARY"
+          echo "Confirm it landed: the \`cariad.invalid\` canary should appear in Moderation > Federation." \
+            >> "$GITHUB_STEP_SUMMARY"
