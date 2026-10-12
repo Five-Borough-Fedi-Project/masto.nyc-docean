@@ -203,10 +203,16 @@ jobs:
 
           echo "Applied." >> "$GITHUB_STEP_SUMMARY"
 
-      # One message, whatever happened, so a quiet day and a held change are
-      # distinguishable in the channel. Same shape as terraform.yaml's
-      # notify-pending: Slack-formatted JSON to /slack, built with jq so report
-      # text cannot break out of the payload, non-200 warns rather than fails.
+      # One message per run that did something, carrying the actual diff.
+      #
+      # Same shape as terraform.yaml's notify-pending: Slack-formatted JSON to
+      # /slack, built with jq so domain names and comments cannot break out of
+      # the payload, and a non-200 warns rather than failing the run -- the
+      # blocks are already applied by then and a red X would not undo them.
+      #
+      # The headline is keyed on whether the apply step actually succeeded, not
+      # on the verdict. Reading the verdict alone would announce "3 changes
+      # applied" after a push that died halfway through the admin API.
       - name: Say what happened in Discord
         if: always() && steps.token.outputs.have_token == 'yes'
         env:
@@ -221,31 +227,57 @@ jobs:
             echo "::notice::DISCORD_OPS_WEBHOOK is not set, so nothing was sent."
             exit 0
           fi
-          # A clean run with nothing to do says nothing. Daily noise is how a
-          # channel gets muted, and a muted channel is worse than no channel.
+          # A clean run with nothing to do says nothing. A channel that gets a
+          # daily "nothing to report" is a channel that gets muted, and a muted
+          # channel is worse than no channel.
           if [ "${VERDICT:-}" = "ok" ] && [ "${CHANGES:-0}" = "0" ]; then
             echo "Nothing changed, so nothing was sent."
             exit 0
           fi
 
+          # The diff itself: the + and ^ lines check-blocklist.py emitted.
+          # Capped, because Discord rejects a message over 2000 characters and
+          # a genuinely large change would blow past that. The cap says so
+          # rather than silently truncating, and the run link has the rest.
+          grep '^  [+^]' /tmp/report.txt > /tmp/diff.txt 2>/dev/null || true
+          total=$(wc -l < /tmp/diff.txt)
+          if [ "$total" -gt 25 ]; then
+            { head -25 /tmp/diff.txt; echo "  ... and $(( total - 25 )) more, see the run"; } > /tmp/diff.shown
+          else
+            cp /tmp/diff.txt /tmp/diff.shown
+          fi
+
           case "${VERDICT:-fail}" in
-            ok)     head="**Blocklist updated**: ${CHANGES} change(s) applied to masto.nyc." ;;
-            review) head="**Blocklist change held for review**: ${CHANGES} change(s), over the size gate. Nothing was applied. Re-run with allow_large_change to accept it." ;;
-            *)      head="**Blocklist sync refused the fetched data.** Nothing was applied." ;;
+            ok|review)
+              if [ "${APPLIED:-skipped}" = "success" ]; then
+                if [ "${VERDICT}" = "review" ]; then
+                  head="**Blocklist updated** (a held change, accepted by hand): ${CHANGES} applied to masto.nyc."
+                else
+                  head="**Blocklist updated**: ${CHANGES} applied to masto.nyc."
+                fi
+                detail=$(cat /tmp/diff.shown)
+              elif [ "${APPLIED:-skipped}" = "failure" ]; then
+                head="**Blocklist apply FAILED** after ${CHANGES} change(s) were approved. Some may have landed and some may not."
+                detail="$(cat /tmp/diff.shown)"
+              else
+                head="**Blocklist change held for review**: ${CHANGES} change(s), over the size gate. Nothing applied. Re-run with allow_large_change to accept it."
+                detail=$(cat /tmp/diff.shown)
+              fi ;;
+            *)
+              head="**Blocklist sync refused the fetched data.** Nothing was applied, and there is nothing worth reviewing: the input is broken, not the decision."
+              detail=$(grep '^reason:' /tmp/report.txt | head -5 || echo "see the run") ;;
           esac
 
           base="${WEBHOOK%/}"; base="${base%/slack}"; base="${base%/github}"
 
-          jq -nc --arg head "$head" \
-                 --arg report "$(head -c 1200 /tmp/report.txt 2>/dev/null || echo 'no report')" \
-                 --arg url "$RUN_URL" \
-                 '{text: ($head + "\n```\n" + $report + "\n```\n" + $url)}' > /tmp/payload.json
+          jq -nc --arg head "$head" --arg detail "$detail" --arg url "$RUN_URL" \
+            '{text: ($head + "\n```\n" + $detail + "\n```\n" + $url)}' > /tmp/payload.json
 
           code=$(curl -sS -o /tmp/response -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             --data @/tmp/payload.json "${base}/slack")
           if [ "$code" != "200" ] && [ "$code" != "204" ]; then
-            echo "::warning::Discord returned HTTP ${code}."
+            echo "::warning::Discord returned HTTP ${code}. The changes above still applied."
             head -c 300 /tmp/response || true
           fi
 

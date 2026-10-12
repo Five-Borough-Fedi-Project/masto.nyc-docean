@@ -248,9 +248,28 @@ Ask the instance for the canary. Every IFTAS list carries a block on
 If it appears under **Moderation > Federation**, a push landed. That is cheaper
 and more direct than any watchdog, and it is why this job has none.
 
-Discord gets a message whenever something happened -- applied, held, or refused
--- and deliberately says nothing on a day with no changes. A channel that gets
-a daily "nothing to report" is a channel that gets muted.
+Discord gets a message whenever something happened, carrying the diff that was
+applied -- the added domains with their severity, and any existing block whose
+severity was raised:
+
+    **Blocklist updated**: 3 applied to masto.nyc.
+    ```
+      + newbadsite.example (suspend)
+      + another.example (suspend)
+      ^ known.example (silence -> suspend)
+    ```
+
+A day with no changes says nothing at all. A channel that gets a daily "nothing
+to report" is a channel that gets muted, and a muted channel is worse than no
+channel.
+
+Two details in that message are deliberate. The headline is keyed on whether the
+apply step actually succeeded rather than on the verdict, because reading the
+verdict alone would announce "3 changes applied" after a push that died halfway
+through the admin API; a partial apply says so. And the diff is capped at
+twenty-five lines with an explicit "and N more" rather than being silently
+truncated, because Discord rejects a message over two thousand characters and a
+large accepted change would otherwise vanish mid-list.
 
 ### Still outstanding
 
