@@ -6,59 +6,51 @@
 # and policies.md went on promising a subscription the infrastructure had
 # stopped honouring. See docs/blocklists.md.
 #
-# Three things are different this time.
+# Nothing is stored. There is no committed copy of the blocklist: what this
+# instance blocks is whatever /api/v1/admin/domain_blocks says it blocks, and
+# that is what the merged lists are compared against. The only file under
+# version control is blocklist/allowlist.csv, which is hand-written
+# configuration rather than fetched data.
 #
-# It is a workflow rather than a CronJob. The old job needed an image from a
-# private third-party registry, unpinned, behind an imagePullSecret -- which is
-# most of why it did not come across. Nothing here needs the cluster: this talks
-# to the Mastodon admin API over HTTPS, so a pip install and a runner are the
-# whole dependency.
+# Routine updates apply themselves. A person is pulled in only when the change
+# is anomalously large, which is the one case where "a list said so" is not a
+# good enough reason. scripts/check-blocklist.py decides which it is and says
+# `ok`, `review`, or `fail`.
 #
-# Merging is the review. The daily run proposes; a human merges. Defederation
-# severs other people's conversations, and policies.md frames server blocking as
-# the moderators' discretion, which a timer is a poor way to hold.
-#
-# The branch name is fixed, so a second proposal force-pushes over the first
-# instead of stacking. Six image-tags pull requests piled up in September doing
-# the opposite, and clearing them by hand needed a per-image supersession
-# analysis. One long-lived branch has no pile to clear.
+# A workflow rather than the old CronJob: that job needed an unpinned image
+# from a private third-party registry behind an imagePullSecret, which is most
+# of why it was lost. Nothing here touches the cluster.
 name: Blocklist sync
 
 on:
   schedule:
     # 11:00 UTC daily. Clear of the backup (01:30), sync-blocked-email-domains
-    # (03:00), its watchdog (09:00), and the Mastodon upgrade check (13:00).
-    # The lists move weekly at most, so daily is already more often than the
-    # sources change; it costs one 14KB fetch per list.
+    # (03:00), its watchdog (09:00) and the Mastodon upgrade check (13:00).
     - cron: '0 11 * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'blocklist/snapshot.csv'
-      - 'blocklist/allowlist.csv'
+    inputs:
+      allow_large_change:
+        description: 'Apply a change the size gate held back. Read the held run first.'
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 env:
   # Pinned. Unpinned tooling is what made the old job unreproducible.
   FEDIBLOCKHOLE_VERSION: '0.4.6'
 
 jobs:
-  # Fetch, merge, apply the allowlist, and propose the result if it differs
-  # from what is committed.
-  propose:
-    if: github.event_name != 'push'
+  sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # No setup-python: the runner already has one, and this repository pins
-      # every action by digest, so adding a dependency means another digest to
-      # keep current for no gain. A venv rather than a bare pip install, which
-      # newer runner images refuse without --break-system-packages.
+      # No setup-python: the runner has one, and this repository pins every
+      # action by digest, so that would be another digest to carry for nothing.
+      # A venv rather than a bare pip install, which newer runner images refuse
+      # without --break-system-packages.
       - name: Install fediblockhole
         run: |
           set -euo pipefail
@@ -66,10 +58,65 @@ jobs:
           /tmp/fbh/bin/pip install --quiet "fediblockhole==${FEDIBLOCKHOLE_VERSION}"
           /tmp/fbh/bin/fediblock-sync --version
 
-      # The committed config carries no allowlist path and no destination. The
-      # path has to be absolute for a file:// URL and differs per runner; the
-      # destination carries the admin token and must not be in a public repo.
-      - name: Build the runtime config
+      # Inert without its secret, like monitoring.tf. Reading the instance's
+      # current blocks is what makes the comparison possible, so with no token
+      # there is nothing to compare and nothing honest to do.
+      - name: Check for the token
+        id: token
+        env:
+          TOKEN: ${{ secrets.MASTODON_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::notice::MASTODON_ADMIN_TOKEN is not set, so there is nothing to compare against."
+            echo "have_token=no" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Skipped"
+              echo
+              echo "\`MASTODON_ADMIN_TOKEN\` is not configured. It needs"
+              echo "\`admin:read:domain_blocks\` and \`admin:write:domain_blocks\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "have_token=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The admin API paginates with Link headers rather than a page count, so
+      # this follows rel="next" until it runs out. Fetching only the first page
+      # would make every domain past it look like a new block.
+      - name: Read what the instance currently blocks
+        if: steps.token.outputs.have_token == 'yes'
+        env:
+          TOKEN: ${{ secrets.MASTODON_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import json, os, urllib.request, re, sys
+
+          token = os.environ["TOKEN"]
+          url = "https://masto.nyc/api/v1/admin/domain_blocks?limit=200"
+          blocks, pages = [], 0
+
+          while url and pages < 50:
+              req = urllib.request.Request(url, headers={
+                  "Authorization": "Bearer " + token,
+                  "User-Agent": "masto.nyc blocklist-sync",
+              })
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  body = json.load(resp)
+                  link = resp.headers.get("Link", "")
+              if not isinstance(body, list):
+                  sys.exit("admin API returned %s, not a list of blocks" % type(body).__name__)
+              blocks += body
+              pages += 1
+              m = re.search(r'<([^>]+)>;\s*rel="next"', link)
+              url = m.group(1) if m else None
+
+          print("fetched %d blocks over %d page(s)" % (len(blocks), pages))
+          json.dump(blocks, open("/tmp/instance.json", "w"))
+          PYEOF
+
+      - name: Merge the lists and apply the allowlist
+        if: steps.token.outputs.have_token == 'yes'
         run: |
           set -euo pipefail
           cp blocklist/sources.toml /tmp/runtime.toml
@@ -79,121 +126,67 @@ jobs:
             { url = 'file://${GITHUB_WORKSPACE}/blocklist/allowlist.csv', format = 'csv' },
           ]
           EOF
-
-      - name: Merge the lists and apply the allowlist
-        run: |
-          set -euo pipefail
           /tmp/fbh/bin/fediblock-sync -c /tmp/runtime.toml \
             --no-push-instance --no-fetch-instance \
             -o /tmp/candidate.csv --loglevel info
 
-      # Nothing becomes a proposal until this passes. IFTAS serves from Google
-      # Sheets, which can return an HTML error page instead of CSV; diffed
-      # naively that reads as "unblock everything".
-      - name: Refuse a bad fetch
-        id: check
+      - name: Decide whether it can apply itself
+        id: decide
+        if: steps.token.outputs.have_token == 'yes'
         run: |
           set -euo pipefail
-          python3 scripts/check-blocklist.py /tmp/candidate.csv blocklist/snapshot.csv \
-            | tee /tmp/report.txt
-
-      - name: Propose it, if anything changed
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: |
-          set -euo pipefail
-          if diff -q blocklist/snapshot.csv /tmp/candidate.csv >/dev/null; then
-            echo "The merged list matches blocklist/snapshot.csv. Nothing to do." \
-              >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          branch="automation/blocklist"
-          cp /tmp/candidate.csv blocklist/snapshot.csv
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add blocklist/snapshot.csv
-          git commit -qm "blocklist: sync from the IFTAS denylists"
-
-          # Fixed branch, so re-propose replaces rather than stacks. Nothing is
-          # reviewed on it until a pull request is open, and once one is open
-          # this updates it in place.
-          git push -qf origin "$branch"
-
+          # The script exits non-zero only on `fail`. `review` is a decision,
+          # not an error, so it exits 0 and the verdict is read from stdout.
+          set +e
+          python3 scripts/check-blocklist.py /tmp/candidate.csv /tmp/instance.json > /tmp/report.txt
+          rc=$?
+          set -e
+          cat /tmp/report.txt
+          verdict=$(grep -oP '^verdict=\K\w+' /tmp/report.txt || echo fail)
+          echo "verdict=${verdict}" >> "$GITHUB_OUTPUT"
+          echo "changes=$(grep -c '^  [+^]' /tmp/report.txt || true)" >> "$GITHUB_OUTPUT"
           {
-            echo "The IFTAS denylists have changed. \`blocklist/snapshot.csv\` is the"
-            echo "merged result after \`blocklist/allowlist.csv\` is applied."
-            echo
-            echo "**Merging this deploys it.** The apply job pushes the reviewed snapshot"
-            echo "to the instance over the admin API. Blocks are added and existing ones"
-            echo "may be made more severe; nothing is ever unblocked, because"
-            echo "fediblockhole has no code path that deletes a domain block."
-            echo
-            echo "Exceptions live in \`blocklist/allowlist.csv\`. Add a domain there to"
-            echo "have it dropped from every list."
+            echo "### Blocklist sync: \`${verdict}\`"
             echo
             echo '```'
             cat /tmp/report.txt
             echo '```'
-          } > /tmp/body
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
 
-          if [ -z "$(gh pr list --state open --head "$branch" --json number --jq '.[0].number' 2>/dev/null || true)" ]; then
-            gh pr create --base main --head "$branch" \
-              --title "blocklist: sync from the IFTAS denylists" \
-              --assignee "$ACTOR" --body-file /tmp/body \
-              && echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Updated the existing pull request for ${branch}." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  # Push the reviewed snapshot to the instance.
-  apply:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      # No setup-python: the runner already has one, and this repository pins
-      # every action by digest, so adding a dependency means another digest to
-      # keep current for no gain. A venv rather than a bare pip install, which
-      # newer runner images refuse without --break-system-packages.
-      - name: Install fediblockhole
-        run: |
-          set -euo pipefail
-          python3 -m venv /tmp/fbh
-          /tmp/fbh/bin/pip install --quiet "fediblockhole==${FEDIBLOCKHOLE_VERSION}"
-          /tmp/fbh/bin/fediblock-sync --version
-
-      # The source here is the committed snapshot, not the remote lists. What
-      # gets pushed is exactly what was reviewed in the pull request, even if
-      # IFTAS has published something new in the meantime.
+      # Push only the additions and escalations the gate approved. The source
+      # here is the merged candidate, and fediblockhole fetches the instance's
+      # own blocks to work out the difference, so nothing already correct is
+      # touched.
       #
-      # The allowlist is applied again rather than trusted. The snapshot already
-      # excludes allowlisted domains, but someone adding an exception without
-      # regenerating the snapshot should still get the exception.
-      #
-      # max_followed_severity = 'silence' is the guard that matters. Every entry
+      # max_followed_severity = 'silence' is the guard that matters. Every row
       # in these lists is `suspend`, and a suspend severs existing follow
-      # relationships. This caps the severity at silence for any domain somebody
-      # here already follows, which is what the old job did too.
-      - name: Push to the instance
+      # relationships; this caps it at silence for any domain somebody here
+      # already follows. The old job did the same.
+      #
+      # It never unblocks anything: fediblockhole has a delete_block function
+      # and no code path that calls it.
+      - name: Apply it
+        id: apply
+        if: >-
+          steps.token.outputs.have_token == 'yes' &&
+          (steps.decide.outputs.verdict == 'ok' ||
+           (steps.decide.outputs.verdict == 'review' && inputs.allow_large_change))
         env:
           TOKEN: ${{ secrets.MASTODON_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${TOKEN:-}" ]; then
-            echo "::notice::MASTODON_ADMIN_TOKEN is not set, so nothing was pushed."
-            echo "The snapshot is committed and will apply once the secret exists." \
-              >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.decide.outputs.changes }}" = "0" ]; then
+            echo "Nothing to apply." >> "$GITHUB_STEP_SUMMARY"
             exit 0
+          fi
+          if [ "${{ steps.decide.outputs.verdict }}" = "review" ]; then
+            echo "::warning::Applying a change the size gate held, because allow_large_change was set."
           fi
 
           cat > /tmp/apply.toml <<EOF
           blocklist_url_sources = [
-            { url = 'file://${GITHUB_WORKSPACE}/blocklist/snapshot.csv', format = 'csv' },
+            { url = 'file:///tmp/candidate.csv', format = 'csv' },
           ]
           allowlist_url_sources = [
             { url = 'file://${GITHUB_WORKSPACE}/blocklist/allowlist.csv', format = 'csv' },
@@ -208,6 +201,67 @@ jobs:
           /tmp/fbh/bin/fediblock-sync -c /tmp/apply.toml --loglevel info \
             --override-private-comment "masto.nyc blocklist-sync $(date -u +%Y-%m-%d)"
 
-          echo "Pushed the reviewed snapshot to masto.nyc." >> "$GITHUB_STEP_SUMMARY"
-          echo "Confirm it landed: the \`cariad.invalid\` canary should appear in Moderation > Federation." \
-            >> "$GITHUB_STEP_SUMMARY"
+          echo "Applied." >> "$GITHUB_STEP_SUMMARY"
+
+      # One message, whatever happened, so a quiet day and a held change are
+      # distinguishable in the channel. Same shape as terraform.yaml's
+      # notify-pending: Slack-formatted JSON to /slack, built with jq so report
+      # text cannot break out of the payload, non-200 warns rather than fails.
+      - name: Say what happened in Discord
+        if: always() && steps.token.outputs.have_token == 'yes'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+          VERDICT: ${{ steps.decide.outputs.verdict }}
+          CHANGES: ${{ steps.decide.outputs.changes }}
+          APPLIED: ${{ steps.apply.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "::notice::DISCORD_OPS_WEBHOOK is not set, so nothing was sent."
+            exit 0
+          fi
+          # A clean run with nothing to do says nothing. Daily noise is how a
+          # channel gets muted, and a muted channel is worse than no channel.
+          if [ "${VERDICT:-}" = "ok" ] && [ "${CHANGES:-0}" = "0" ]; then
+            echo "Nothing changed, so nothing was sent."
+            exit 0
+          fi
+
+          case "${VERDICT:-fail}" in
+            ok)     head="**Blocklist updated**: ${CHANGES} change(s) applied to masto.nyc." ;;
+            review) head="**Blocklist change held for review**: ${CHANGES} change(s), over the size gate. Nothing was applied. Re-run with allow_large_change to accept it." ;;
+            *)      head="**Blocklist sync refused the fetched data.** Nothing was applied." ;;
+          esac
+
+          base="${WEBHOOK%/}"; base="${base%/slack}"; base="${base%/github}"
+
+          jq -nc --arg head "$head" \
+                 --arg report "$(head -c 1200 /tmp/report.txt 2>/dev/null || echo 'no report')" \
+                 --arg url "$RUN_URL" \
+                 '{text: ($head + "\n```\n" + $report + "\n```\n" + $url)}' > /tmp/payload.json
+
+          code=$(curl -sS -o /tmp/response -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data @/tmp/payload.json "${base}/slack")
+          if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+            echo "::warning::Discord returned HTTP ${code}."
+            head -c 300 /tmp/response || true
+          fi
+
+      # Red when a person is needed. A held moderation decision and untrusted
+      # input are both things that should not look like success in the run list.
+      - name: Fail if a person is needed
+        if: steps.token.outputs.have_token == 'yes'
+        run: |
+          set -euo pipefail
+          case "${{ steps.decide.outputs.verdict }}" in
+            ok) exit 0 ;;
+            review)
+              if [ "${{ inputs.allow_large_change }}" = "true" ]; then exit 0; fi
+              echo "::error::The change is larger than the gate allows. Read the summary, then re-run with allow_large_change if it is right."
+              exit 1 ;;
+            *)
+              echo "::error::The fetched blocklist data did not pass its checks. Nothing was applied."
+              exit 1 ;;
+          esac

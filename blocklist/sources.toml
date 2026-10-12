@@ -27,8 +27,10 @@
 #   https://docs.google.com/spreadsheets/d/1qSY6DMDDRSozdeSnqm1vhOEwHRhNL5WPr8V1UcpAuI4/gviz/tq?tqx=out:csv&gid=0&range=A:F
 #
 # These are Google Sheets endpoints. They send no ETag and
-# `cache-control: no-store`, so conditional requests are impossible and the
-# workflow diffs the fetched content against blocklist/snapshot.csv instead.
+# `cache-control: no-store`, so there is no conditional request to make. That
+# does not matter: nothing is cached here. The merged result is compared against
+# what the instance currently blocks, read from its own admin API, so the
+# instance is the state and this repository stores none.
 # They can also serve an HTML error page under throttling, which is what
 # scripts/check-blocklist.py exists to catch.
 #
