@@ -3,8 +3,8 @@
 ### Discord accepts Slack-formatted payloads on a webhook URL with `/slack`
 ### appended, and DigitalOcean's only webhook-shaped destination is its Slack
 ### one. That pairing is why these need no translator, no Worker and no service
-### in the middle. Set var.discord_ops_webhook to the Discord webhook URL WITH
-### `/slack` on the end.
+### in the middle. var.discord_ops_webhook may be set with or without the
+### `/slack` suffix; local.discord_slack_url below normalises it.
 ###
 ### Scoped to the `k8s:worker` tag rather than to droplet IDs. DOKS replaces a
 ### node and its ID changes; the tag does not, and an alert policy pinned to a
@@ -21,7 +21,28 @@ locals {
   # Empty string disables every policy below, so this file is inert until the
   # secret exists. Terraform cannot conditionally omit a nested block, so the
   # count goes on the resource.
+  #
+  # Keyed on the raw variable rather than on the normalised URL below, because
+  # normalising an empty string must not look like a configured webhook.
   discord_enabled = var.discord_ops_webhook != "" ? 1 : 0
+
+  # DigitalOcean posts a Slack-shaped payload straight to this URL, so for
+  # these three policies it has to end in `/slack`. Every other consumer of the
+  # same secret -- the watchdog CronJob here, the blocklist sync in
+  # sync-blocked-fedi-domains -- strips the suffix and re-appends it, so the
+  # secret works for them whichever form it is in and this file was the only
+  # strict one.
+  #
+  # That asymmetry cost two days. The secret's value changed on 2026-10-13 and
+  # these policies drifted from state on every scheduled run afterwards, while
+  # the strict format requirement lived only in a comment. A re-paste without
+  # the suffix would not fail here -- it would quietly point every node alert
+  # at a URL Discord 404s, which reads exactly like no alerts at all.
+  #
+  # Mirrors the shell in the watchdog step for step: drop a trailing slash,
+  # then a `/slack` or `/github` suffix, then append `/slack`.
+  discord_webhook_base = trimsuffix(trimsuffix(trimsuffix(var.discord_ops_webhook, "/"), "/slack"), "/github")
+  discord_slack_url    = var.discord_ops_webhook == "" ? "" : "${local.discord_webhook_base}/slack"
 }
 
 ### Memory. The nodes are 3Gi of allocatable memory and have run at 93% of
@@ -32,7 +53,7 @@ resource "digitalocean_monitor_alert" "node_memory" {
   alerts {
     slack {
       channel = "ops"
-      url     = var.discord_ops_webhook
+      url     = local.discord_slack_url
     }
   }
   window      = "5m"
@@ -52,7 +73,7 @@ resource "digitalocean_monitor_alert" "node_disk" {
   alerts {
     slack {
       channel = "ops"
-      url     = var.discord_ops_webhook
+      url     = local.discord_slack_url
     }
   }
   window      = "5m"
@@ -71,7 +92,7 @@ resource "digitalocean_monitor_alert" "node_cpu" {
   alerts {
     slack {
       channel = "ops"
-      url     = var.discord_ops_webhook
+      url     = local.discord_slack_url
     }
   }
   window      = "5m"

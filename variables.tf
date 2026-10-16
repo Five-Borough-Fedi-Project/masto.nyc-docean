@@ -76,7 +76,7 @@ variable "large_node_ips" {
 ### this file plans clean with no secret set.
 variable "discord_ops_webhook" {
   type        = string
-  description = "Discord webhook URL with /slack appended, for DigitalOcean alerts"
+  description = "Discord webhook URL for ops alerts; the /slack suffix is optional and normalised in monitoring.tf"
   default     = ""
   sensitive   = true
 }
