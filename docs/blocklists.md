@@ -99,32 +99,33 @@ nobody ever hears from is the same shape of problem it was built to catch.
 
 ## The fediverse blocklist
 
-`policies.md` in the website repository says the instance subscribes to the
-[oliphant.social Tier 0 blocklist](https://codeberg.org/oliphant/blocklists/),
-and that moderators block additional servers at their discretion.
+**Not in this repository.** It lives in
+[sync-blocked-fedi-domains](https://github.com/Five-Borough-Fedi-Project/sync-blocked-fedi-domains),
+which has its own README covering the lists, the thresholds and how to allow a
+domain.
 
-**There is no automation for any of that.** No reference to oliphant, Tier 0,
-`domain_blocks` or defederation exists anywhere in this repository. Whatever
-keeps the server's domain blocks aligned with Tier 0 is a person doing it by
-hand, or it is not happening.
+It was built here first and moved before it ever ran. `allowlist.csv` is a
+moderation artifact, and editing it should not require write access to a
+repository that can deploy Kubernetes, apply Terraform against DigitalOcean and
+rotate database credentials. The Mastodon admin token it needs also belongs
+somewhere narrower than a secret store that carries the DigitalOcean, Cloudflare
+and Spaces credentials. Nothing it does touches the cluster, so there was no
+coupling to lose.
 
-That is recorded here rather than fixed, deliberately. Automating it would mean
-a job that blocks servers without review, and the blast radius is other
-people's conversations: a bad entry, or an upstream list that moves in a
-direction the moderators would not have chosen, severs real follow
-relationships. `policies.md` already frames server blocking as "at the
-moderators' discretion", which is a policy position, and a cron job is a poor
-way to hold one.
+The short version of what it does, so this page is not a dead end:
 
-If it is worth automating later, the shape is roughly:
+- Merges three IFTAS denylists -- DNI, AUD and CARIAD at the 66% consensus
+  threshold -- nightly, applies an allowlist, and compares the result against
+  what the instance already blocks.
+- Stores nothing. The instance is the state.
+- Applies a routine difference itself, holds an anomalously large one for a
+  moderator, and refuses data it cannot trust without asking anyone to review
+  it.
+- Never unblocks anything, and never suspends a domain somebody here follows.
 
-- Pull the Tier 0 CSV, which is versioned on Codeberg.
-- Diff it against `/api/v1/admin/domain_blocks`.
-- **Open a pull request, or post the diff to Discord, rather than applying it.**
-  A human approves the additions.
-- Never remove a block automatically. Unblocking is a decision, and
-  `policies.md` already points people at the issue tracker for it.
-
-That keeps the list current without handing defederation to a timer. It is a
-larger piece of work than it looks, mostly because of the reconciliation rules
-rather than the fetching.
+The reason this section still exists at all is the confusion that produced it.
+`sync-blocked-email-domains`, documented above, blocks **email** domains at
+signup and is a CronJob in this cluster. The fediverse blocklist defederates
+**servers** and is a workflow in another repository. The names are nearly
+identical and they have been mixed up before, including by someone asking what
+"the blocklist job" was doing.
