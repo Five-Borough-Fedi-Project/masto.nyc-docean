@@ -32,6 +32,13 @@
     ]
   },
   "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": {
+    "description": "welcome-bot installs exactly what docker/welcome-bot/poetry.lock says, and a bump to a direct dependency only moves what that dependency forces. Without this, transitive packages such as certifi and urllib3 would stay where they were locked indefinitely. It arrives as its own pull request, on the same Monday as everything else, and automerges like a patch.",
+    "enabled": true,
+    "schedule": [
+      "before 9am on monday"
+    ]
+  },
   "kubernetes": {
     "managerFilePatterns": [
       "/^k8s/.+\\.ya?ml$/"
@@ -90,18 +97,12 @@
       "groupName": "first-party image dependencies"
     },
     {
-      "description": "pydantic pins pydantic-core to an exact version, so any independent bump of it is wrong by construction. Renovate proposed 2.48.0 against pydantic 2.13.5, which pins 2.46.5, and the image would not build. It is a transitive dependency that happens to be written out in a fully resolved requirements file; it moves when pydantic moves.",
-      "matchPackageNames": [
-        "pydantic-core"
-      ],
-      "enabled": false
-    },
-    {
       "description": "Non-major updates merge themselves once the checks on the pull request are green. platformAutomerge is off deliberately: GitHub's own auto-merge releases a pull request when its required checks pass, and main has no required checks -- the ruleset list is empty -- so it would merge without waiting for anything at all. With it off, Renovate reads the branch status itself and merges only on green. This deploys: the cluster images group edits k8s/ and Flux reconciles main within ten minutes, so an automerged digest is a production rollout nobody watched. That is why the things that must never roll out that way are disabled outright above rather than left to this rule. See docs/renovate.md.",
       "matchUpdateTypes": [
         "minor",
         "patch",
-        "digest"
+        "digest",
+        "lockFileMaintenance"
       ],
       "automerge": true,
       "automergeType": "pr",
