@@ -5,11 +5,6 @@ description = "Shouts yerrr at new users who sign up"
 authors = ["seano"]
 readme = "README.md"
 
-[tool.poetry-auto-export]
-output = "requirements.txt"
-without_hashes = true
-without = ["dev"]
-
 [tool.poetry.dependencies]
 python = "^3.10"
 mastodon-py = "^2.1.3"

@@ -59,6 +59,17 @@ separate bumps on a Monday meant five rollouts to approve. Six stacked up betwee
 rollout. Majors are excluded from the group so a single one cannot hold the rest
 back from automerging.
 
+`welcome-bot` is built from its `poetry.lock`, which the Dockerfile exports to a
+requirements list at build time. It used to install a `requirements.txt` that
+Renovate bumped one line at a time, and on 2026-10-20 that paired pydantic 2.14.1
+with the pydantic-core 2.13.5 pins, so the image would not build. A lock Renovate
+regenerates cannot disagree with itself that way. The cost is that a bump to a
+direct dependency only moves what that dependency forces, so lock file
+maintenance is on as well: one more Monday pull request that refreshes every
+transitive pin, and automerges like a patch. `timeline-health` has no lock and
+still installs its `requirements.txt`, which is safe because nothing in it pins
+another package exactly.
+
 Two versions pinned as workflow environment variables are tracked by custom
 regex managers, since nothing else would find them: `TOFU_VERSION` and
 `GITLEAKS_VERSION`.
