@@ -22,7 +22,7 @@ spec:
             drop: [ALL]
             add: [NET_BIND_SERVICE]
         # TODO: can the image be terraform-ed or put somewhere else, like github?
-        image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/welcome-bot:d4d2ce93a8ed6a9314e0c16cfe68eae1dc990081
+        image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/welcome-bot:f005cb162650bb1e1e6b3c7a1f10ea92a69d1ec3
         imagePullPolicy: IfNotPresent
         # Sized from measurement, 2026-09-05: 41Mi and 3m on do-production.
         resources:
