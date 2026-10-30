@@ -4,10 +4,11 @@
 # editing both cluster overlays, proving they still build, and putting the
 # checklist somewhere you cannot avoid reading it.
 #
-# It deliberately stops there. The rest of an upgrade needs a drained site and
-# a database, and this repository has no cluster credentials in CI on purpose.
-# Merging the pull request this opens deploys the new image through Flux, so
-# merge it during the window, after the migrations have run.
+# It stops there. Merging the pull request deploys the new image through Flux,
+# which runs any migrations first, and for most releases that is the whole
+# upgrade. The pull request body says which checklist applies. A release with
+# long migrations needs the drained-site procedure in docs/upgrade-runbook.md,
+# and you run that by hand: CI has no cluster credentials, on purpose.
 #
 # scale_for_upgrade.sh stays. It is the manual half.
 #
@@ -169,8 +170,11 @@ jobs:
             echo "  ghcr.io/${repo}:${VERSION} exists"
           done
 
-      # Mastodon marks non-routine upgrades in an "Upgrade overview" section
-      # with a fixed vocabulary. Across 60 releases only four markers appear:
+      # Two readings of what an upgrade involves.
+      #
+      # First, the release notes. Mastodon marks non-routine upgrades in an "Upgrade
+      # overview" section with a fixed vocabulary. Across 60 releases only four
+      # markers appear:
       #
       #   Requires assets recompilation                 29x, mostly patches
       #   Requires streaming server restart              3x, only .0 minors
@@ -178,39 +182,86 @@ jobs:
       #   Requires unusually long database migrations    1x, v4.7.0
       #
       # Assets recompilation does not apply here, since these are upstream
-      # prebuilt images. The database markers have only ever appeared on .0
-      # releases, so the version number is a decent proxy, and the marker is the
-      # thing that is actually true.
-      - name: Read the release notes for anything unusual
+      # prebuilt images, and a streaming restart happens anyway when Flux rolls
+      # the streaming image.
+      #
+      # Second, the tags. Someone at Mastodon writes the markers by hand. The
+      # files added under db/migrate and db/post_migrate between the two tags
+      # are the migrations Rails will run. A blobless fetch of two tags pulls
+      # trees only and takes seconds. `routine` needs both readings to agree
+      # that nothing will migrate. If either fails, the answer is `unknown`.
+      #
+      # The answer picks the checklist in the pull request body. Until this
+      # step existed, every body carried the drained-site checklist, and the
+      # v4.7.4 pull request asked for a drain on a release with no migrations.
+      - name: Work out what the upgrade involves
         id: notes
         env:
           VERSION: ${{ needs.detect.outputs.version }}
+          CURRENT: ${{ steps.check.outputs.current }}
         run: |
           set -euo pipefail
-          body=$(curl -sfL -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/mastodon/mastodon/releases/tags/${VERSION}" \
-            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("body") or "")') || {
-              echo "::warning::Could not fetch release notes for ${VERSION}. Read them yourself."
-              echo "risk=unknown" >> "$GITHUB_OUTPUT"; exit 0; }
-
-          overview=$(printf '%s' "$body" | sed -n '/[Uu]pgrade overview/,/^#\{1,\} /p')
-          printf '%s' "$overview" | sed 's/^/  /'
-
-          risk=routine
-          if printf '%s' "$overview" | grep -qi 'unusually long database migrations'; then
-            risk=long
-          elif printf '%s' "$overview" | grep -qi 'requires database migrations'; then
-            risk=migrations
+          marker=none
+          if body=$(curl -sfL -H 'Accept: application/vnd.github+json' \
+                "https://api.github.com/repos/mastodon/mastodon/releases/tags/${VERSION}" \
+                | python3 -c 'import sys,json; print(json.load(sys.stdin).get("body") or "")'); then
+            overview=$(printf '%s' "$body" | sed -n '/[Uu]pgrade overview/,/^#\{1,\} /p')
+            printf '%s' "$overview" | sed 's/^/  /'
+            if printf '%s' "$overview" | grep -qi 'unusually long database migrations'; then
+              marker=long
+            elif printf '%s' "$overview" | grep -qi 'requires database migrations'; then
+              marker=migrations
+            fi
+          else
+            echo "::warning::Could not fetch release notes for ${VERSION}."
+            marker=unreadable
           fi
-          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+          echo "  release notes marker: ${marker}"
+
+          # Added files only. A migration edited in place has already run here
+          # under its old contents and will not run again.
+          pre=0; post=0; diffed=no
+          : > /tmp/migrations.txt
+          mkdir /tmp/upstream && cd /tmp/upstream
+          git init -q && git remote add origin https://github.com/mastodon/mastodon
+          if git fetch -q --depth=1 --filter=blob:none origin \
+               "refs/tags/${CURRENT}:refs/tags/${CURRENT}" \
+               "refs/tags/${VERSION}:refs/tags/${VERSION}"; then
+            git diff --no-renames --name-only --diff-filter=A "$CURRENT" "$VERSION" \
+              -- db/migrate db/post_migrate > /tmp/migrations.txt
+            pre=$(grep -c '^db/migrate/' /tmp/migrations.txt || true)
+            post=$(grep -c '^db/post_migrate/' /tmp/migrations.txt || true)
+            diffed=yes
+            echo "  ${CURRENT}...${VERSION} adds ${pre} pre-deployment and ${post} post-deployment migration(s)"
+            sed 's/^/    /' /tmp/migrations.txt
+          else
+            echo "::warning::Could not fetch ${CURRENT} and ${VERSION} from mastodon/mastodon to count migrations."
+          fi
+
+          if [ "$marker" = long ]; then
+            risk=long
+          elif [ "$marker" = migrations ] || [ $((pre + post)) -gt 0 ]; then
+            risk=migrations
+          elif [ "$marker" = none ] && [ "$diffed" = yes ]; then
+            risk=routine
+          else
+            risk=unknown
+          fi
+          {
+            echo "risk=$risk"
+            echo "pre=$pre"
+            echo "post=$post"
+          } >> "$GITHUB_OUTPUT"
 
           case "$risk" in
             long)
-              echo "::warning::${VERSION} declares unusually long database migrations. Use the manual path in docs/upgrade-runbook.md." ;;
+              echo "::warning::${VERSION} declares unusually long database migrations. Use the drained-site procedure in docs/upgrade-runbook.md." ;;
             migrations)
-              echo "::notice::${VERSION} declares database migrations. The Flux ordering handles these, but read the notes." ;;
+              echo "::notice::${VERSION} brings database migrations. Flux runs them before the rollout." ;;
+            routine)
+              echo "::notice::${VERSION} declares nothing unusual and adds no migrations. Merge it to upgrade." ;;
             *)
-              echo "::notice::${VERSION} declares nothing unusual for a container deployment." ;;
+              echo "::warning::Could not tell what ${VERSION} involves. Read the release notes before merging." ;;
           esac
 
       - name: Bump the overlays and the migration jobs, and prove they build
@@ -283,6 +334,8 @@ jobs:
           CURRENT: ${{ steps.check.outputs.current }}
           ACTOR: ${{ github.actor }}
           RISK: ${{ steps.notes.outputs.risk }}
+          PRE: ${{ steps.notes.outputs.pre }}
+          POST: ${{ steps.notes.outputs.post }}
         run: |
           set -euo pipefail
           branch="upgrade/mastodon-${VERSION}"
@@ -306,32 +359,99 @@ jobs:
             git push -qu origin "$branch"
           fi
 
-          cat > /tmp/body <<EOF
+          notes="https://github.com/mastodon/mastodon/releases/tag/${VERSION}"
+          between="https://github.com/mastodon/mastodon/compare/${CURRENT}...${VERSION}"
+          migrations=""
+          if [ -s /tmp/migrations.txt ]; then
+            migrations=$(head -20 /tmp/migrations.txt | sed 's/^/- `/; s/$/`/')
+            if [ "$(wc -l < /tmp/migrations.txt)" -gt 20 ]; then
+              migrations="${migrations}
+          - ...and $(( $(wc -l < /tmp/migrations.txt) - 20 )) more"
+            fi
+          fi
+
+          # One body per classification. Only `long` and `unknown` get the
+          # drained-site checklist.
+          case "$RISK" in
+            routine)
+              cat > /tmp/body <<EOF
           Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
-          upstream images were confirmed present in GHCR and both overlays build.
+          upstream images exist in GHCR and both overlays build.
 
-          **Do not merge outside an upgrade window.** Flux reconciles \`main\`
-          within ten minutes, so merging deploys the new image. The migrations
-          have to run first, against a drained site.
+          **Routine.** The [release notes](${notes}) declare nothing unusual, and
+          [${CURRENT}...${VERSION}](${between}) adds no database migrations. When
+          you merge, Flux runs the migration Jobs, which find nothing to do, then
+          rolls the web, sidekiq and streaming deployments to the new image.
+          You do not need to drain the site or run kubectl.
 
-          Release notes classify this as: **${RISK}**
+          - [ ] The latest \`mastodon-migration-status\` run is green
+          - [ ] **Merge this.** Flux picks it up within ten minutes
+          - [ ] The pods are running \`${VERSION}\`
+          - [ ] Run **Purge Cloudflare cache** once it is serving
 
-          - [Release notes for ${VERSION}](https://github.com/mastodon/mastodon/releases/tag/${VERSION})
-          - [Every release](https://github.com/mastodon/mastodon/releases), for the versions in between
+          See "The routine path" in \`docs/upgrade-runbook.md\`.
+          EOF
+              ;;
+            migrations)
+              cat > /tmp/body <<EOF
+          Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
+          upstream images exist in GHCR and both overlays build.
 
-          Read \`docs/upgrade-runbook.md\`. The short version:
+          **This upgrade migrates the database.** [${CURRENT}...${VERSION}](${between})
+          adds ${PRE} pre-deployment and ${POST} post-deployment migration(s):
+
+          ${migrations:-- (none found in the tags; the [release notes](${notes}) declare them)}
+
+          Merging deploys. Flux runs the pre-deployment Job first and moves the
+          deployments to the new image once it succeeds. If it fails, the site
+          stays on \`${CURRENT}\`. Flux runs the post-deployment Job after the
+          rollout. You do not need to drain the site; the Flux ordering handles it.
+
+          - [ ] Read the [release notes](${notes}) for every version between ${CURRENT} and ${VERSION}
+          - [ ] The latest \`mastodon-migration-status\` run is green
+          - [ ] Database disk headroom for the migrations
+          - [ ] A backup from today: the nightly one, or \`kubectl -n mastodon create job --from=cronjob/postgres-backup pre-upgrade-backup\`
+          - [ ] Every SQL client closed, DBeaver included (an open session deadlocked the v4.7.0 migration)
+          - [ ] **Merge this**, then watch \`kubectl --context=do -n mastodon logs -l app.kubernetes.io/component=migrate -f\`
+          - [ ] The pods are running \`${VERSION}\`, and the migration status check is green again
+          - [ ] Run **Purge Cloudflare cache** once it is serving
+
+          For a pause between the migration and the rollout, suspend \`apps\`
+          before merging; "The routine path" in \`docs/upgrade-runbook.md\` has
+          the commands.
+          EOF
+              ;;
+            *)
+              # `long`, and `unknown`. For `unknown` the body says what failed
+              # and offers the drained-site procedure, which works in both cases.
+              if [ "$RISK" = long ]; then
+                lead="**Plan a window.** The [release notes](${notes}) declare unusually long database migrations. Flux deploys within ten minutes of a merge, so drain the site and run the migrations before you merge."
+              else
+                lead="**Unknown.** The workflow could not read the release notes or the tags. Check the [release notes](${notes}) and [${CURRENT}...${VERSION}](${between}) yourself. If they add no migrations, merge and you are done. If they do, use the procedure below."
+              fi
+              cat > /tmp/body <<EOF
+          Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
+          upstream images exist in GHCR and both overlays build.
+
+          ${lead}
+
+          ${migrations}
+
+          Follow \`docs/upgrade-runbook.md\` from "Before the window". The short version:
 
           - [ ] Read the release notes for every version between ${CURRENT} and ${VERSION}
-          - [ ] Check the migration backlog is clear (\`mastodon-migration-status\` cronjob)
-          - [ ] Check database disk headroom
+          - [ ] The migration backlog is clear (\`mastodon-migration-status\` cronjob)
+          - [ ] Database disk headroom
           - [ ] Let the nightly backup finish, or run one
           - [ ] Close every SQL client, including DBeaver
           - [ ] \`./scale_for_upgrade.sh drain do\` and \`drain lab\` (suspends Flux)
           - [ ] Run the migrations
-          - [ ] **Merge this**
+          - [ ] **Merge this**, then apply both overlays (Flux is suspended)
           - [ ] \`./scale_for_upgrade.sh fill do\` and \`fill lab\` (resumes Flux)
-          - [ ] Re-run the migration status check
+          - [ ] Re-run the migration status check, and purge the Cloudflare cache
           EOF
+              ;;
+          esac
 
           # The URL goes to the next step, which announces it. gh prints it on
           # stdout; take the last line in case it ever prints anything else.
@@ -397,10 +517,17 @@ jobs:
             --arg risk "${RISK:-unknown}" \
             --arg notes "https://github.com/mastodon/mastodon/releases/tag/${VERSION}" \
             --arg pr "$PR_URL" \
-            '{text: ("**Mastodon " + $version + " is ready to upgrade to**\n" +
-                     "Up from " + $current + ". Release notes classify it as " +
-                     $risk + ": " + $notes + "\n" +
-                     "Do not merge outside an upgrade window: merging deploys.\n" +
+            '{text: ("**Mastodon " + $version + " is ready to upgrade to**, up from " + $current + ".\n" +
+                     (if $risk == "routine" then
+                        "Routine: no migrations, nothing unusual in the notes. Merge it to upgrade.\n"
+                      elif $risk == "migrations" then
+                        "Brings database migrations. Flux runs them before the rollout without a drain. The pull request lists the checks.\n"
+                      elif $risk == "long" then
+                        "Declares unusually long database migrations. Plan a window and drain the site before you merge.\n"
+                      else
+                        "The workflow could not tell whether it migrates the database. Read the notes before you merge.\n"
+                      end) +
+                     "Release notes: " + $notes + "\n" +
                      "Its checks do not start on their own, because a bot opened it.\n" +
                      $pr)}' > payload.json
 
