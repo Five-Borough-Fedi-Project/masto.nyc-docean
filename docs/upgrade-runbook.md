@@ -59,13 +59,13 @@ the version number is a decent proxy. And assets recompilation, which is most of
 what the marker vocabulary is used for, does not apply here at all: these are
 upstream prebuilt images with assets already compiled.
 
-The upgrade workflow reads the marker and also diffs the two upstream tags for
-files added under `db/migrate` and `db/post_migrate`, which is what will
-actually run. It classifies the release as `routine` (no marker and no new
-migrations), `migrations`, `long`, or `unknown` when either could not be read,
-and the pull request carries the checklist for that case: a short one for
-`routine`, the drained-site procedure below only for `long` or `unknown`. Trust
-the marker and the diff over the version number.
+The upgrade workflow reads the marker and lists the files the target tag adds
+under `db/migrate` and `db/post_migrate`. It classifies the release as
+`routine` (no marker, no new migrations), `migrations`, `long`, or `unknown`
+when it could not read one of the two. The pull request carries a short
+checklist for `routine` and `migrations`, and the drained-site procedure below
+for `long` and `unknown`. Go by the marker and the file list, and ignore the
+version number.
 
 ## When to ignore all that
 
@@ -74,10 +74,9 @@ post-deployment migrations spanning three years that had never run, deadlocked
 against an open DBeaver session, and offered a `VERSION=` flag that would have
 migrated backwards. None of that is work a Kustomization ordering handles.
 
-Use the manual path when the workflow classifies the release as `long`, or as
-`unknown` and reading the notes does not settle it, or when the
-migration-status check is not green. `migrations` is what the Flux ordering was
-built for and needs no special handling.
+Use the manual path in three cases: the workflow says `long`; it says
+`unknown` and the release notes leave you unsure; or the migration-status check
+is red. Flux handles `migrations` on its own, which is what the ordering is for.
 
 ## Before the window
 

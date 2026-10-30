@@ -4,13 +4,11 @@
 # editing both cluster overlays, proving they still build, and putting the
 # checklist somewhere you cannot avoid reading it.
 #
-# It deliberately stops there. Merging the pull request this opens deploys the
-# new image through Flux, which runs any migrations first. Most releases need
-# nothing more than that, and the pull request says which kind this one is:
-# the short routine checklist, or the drained-site procedure in
-# docs/upgrade-runbook.md for a release that declares long migrations. This
-# repository has no cluster credentials in CI on purpose, so the drain, when it
-# is needed, stays manual.
+# It stops there. Merging the pull request deploys the new image through Flux,
+# which runs any migrations first, and for most releases that is the whole
+# upgrade. The pull request body says which checklist applies. A release with
+# long migrations needs the drained-site procedure in docs/upgrade-runbook.md,
+# and you run that by hand: CI has no cluster credentials, on purpose.
 #
 # scale_for_upgrade.sh stays. It is the manual half.
 #
@@ -172,9 +170,9 @@ jobs:
             echo "  ghcr.io/${repo}:${VERSION} exists"
           done
 
-      # Two independent readings of how much an upgrade involves.
+      # Two readings of what an upgrade involves.
       #
-      # The release notes. Mastodon marks non-routine upgrades in an "Upgrade
+      # First, the release notes. Mastodon marks non-routine upgrades in an "Upgrade
       # overview" section with a fixed vocabulary. Across 60 releases only four
       # markers appear:
       #
@@ -187,16 +185,15 @@ jobs:
       # prebuilt images, and a streaming restart happens anyway when Flux rolls
       # the streaming image.
       #
-      # The tags themselves. The markers are an editor's judgement; the files
-      # added under db/migrate and db/post_migrate between the two tags are what
-      # will actually run. A blobless fetch of two tags is trees only, so this
-      # costs seconds. `routine` needs both readings to agree that nothing will
-      # migrate, and if either cannot be read the answer is `unknown`, not
-      # `routine`.
+      # Second, the tags. Someone at Mastodon writes the markers by hand. The
+      # files added under db/migrate and db/post_migrate between the two tags
+      # are the migrations Rails will run. A blobless fetch of two tags pulls
+      # trees only and takes seconds. `routine` needs both readings to agree
+      # that nothing will migrate. If either fails, the answer is `unknown`.
       #
-      # The classification decides which checklist the pull request carries. It
-      # used to carry the drained-site checklist every time, which told people
-      # to take the site down for v4.7.4, a release with no migrations at all.
+      # The answer picks the checklist in the pull request body. Until this
+      # step existed, every body carried the drained-site checklist, and the
+      # v4.7.4 pull request asked for a drain on a release with no migrations.
       - name: Work out what the upgrade involves
         id: notes
         env:
@@ -262,7 +259,7 @@ jobs:
             migrations)
               echo "::notice::${VERSION} brings database migrations. Flux runs them before the rollout." ;;
             routine)
-              echo "::notice::${VERSION} declares nothing unusual and adds no migrations. Merging is the upgrade." ;;
+              echo "::notice::${VERSION} declares nothing unusual and adds no migrations. Merge it to upgrade." ;;
             *)
               echo "::warning::Could not tell what ${VERSION} involves. Read the release notes before merging." ;;
           esac
@@ -373,20 +370,19 @@ jobs:
             fi
           fi
 
-          # One body per classification. The drained-site checklist is only for
-          # the release that needs it; printing it on every patch taught people
-          # to skip it.
+          # One body per classification. Only `long` and `unknown` get the
+          # drained-site checklist.
           case "$RISK" in
             routine)
               cat > /tmp/body <<EOF
           Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
           upstream images exist in GHCR and both overlays build.
 
-          **Routine: merging is the upgrade.** The [release notes](${notes})
-          declare nothing unusual, and [${CURRENT}...${VERSION}](${between}) adds
-          no database migrations. Flux runs the migration Jobs anyway, finds
-          nothing to do, and moves web, sidekiq and streaming to the new image.
-          No drain, no kubectl. Expect a brief blip while each pod is replaced.
+          **Routine.** The [release notes](${notes}) declare nothing unusual, and
+          [${CURRENT}...${VERSION}](${between}) adds no database migrations. When
+          you merge, Flux runs the migration Jobs, which find nothing to do, then
+          rolls the web, sidekiq and streaming deployments to the new image.
+          You do not need to drain the site or run kubectl.
 
           - [ ] The latest \`mastodon-migration-status\` run is green
           - [ ] **Merge this.** Flux picks it up within ten minutes
@@ -407,15 +403,15 @@ jobs:
           ${migrations:-- (none found in the tags; the [release notes](${notes}) declare them)}
 
           Merging deploys. Flux runs the pre-deployment Job first and moves the
-          deployments to the new image only once it succeeds; if it fails, the
-          site stays on \`${CURRENT}\`. The post-deployment Job runs after the
-          rollout. No drain needed: this is what the Flux ordering is for.
+          deployments to the new image once it succeeds. If it fails, the site
+          stays on \`${CURRENT}\`. Flux runs the post-deployment Job after the
+          rollout. You do not need to drain the site; the Flux ordering handles it.
 
           - [ ] Read the [release notes](${notes}) for every version between ${CURRENT} and ${VERSION}
           - [ ] The latest \`mastodon-migration-status\` run is green
           - [ ] Database disk headroom for the migrations
           - [ ] A backup from today: the nightly one, or \`kubectl -n mastodon create job --from=cronjob/postgres-backup pre-upgrade-backup\`
-          - [ ] Every SQL client closed, DBeaver included. An open one deadlocked a migration before
+          - [ ] Every SQL client closed, DBeaver included (an open session deadlocked the v4.7.0 migration)
           - [ ] **Merge this**, then watch \`kubectl --context=do -n mastodon logs -l app.kubernetes.io/component=migrate -f\`
           - [ ] The pods are running \`${VERSION}\`, and the migration status check is green again
           - [ ] Run **Purge Cloudflare cache** once it is serving
@@ -426,12 +422,12 @@ jobs:
           EOF
               ;;
             *)
-              # `long`, and `unknown`: when this cannot tell, it says so and
-              # offers the procedure that is safe either way.
+              # `long`, and `unknown`. For `unknown` the body says what failed
+              # and offers the drained-site procedure, which works in both cases.
               if [ "$RISK" = long ]; then
-                lead="**Plan a window: the [release notes](${notes}) declare unusually long database migrations.** Do not merge outside it. Merging deploys within ten minutes, so the migrations run first, against a drained site."
+                lead="**Plan a window.** The [release notes](${notes}) declare unusually long database migrations. Flux deploys within ten minutes of a merge, so drain the site and run the migrations before you merge."
               else
-                lead="**Could not tell what this upgrade involves**: the release notes or the tags could not be read. Read the [release notes](${notes}) and [${CURRENT}...${VERSION}](${between}). If they bring no migrations, merging is the whole upgrade; otherwise use the procedure below."
+                lead="**Unknown.** The workflow could not read the release notes or the tags. Check the [release notes](${notes}) and [${CURRENT}...${VERSION}](${between}) yourself. If they add no migrations, merge and you are done. If they do, use the procedure below."
               fi
               cat > /tmp/body <<EOF
           Bumps both cluster overlays from \`${CURRENT}\` to \`${VERSION}\`. Both
@@ -523,13 +519,13 @@ jobs:
             --arg pr "$PR_URL" \
             '{text: ("**Mastodon " + $version + " is ready to upgrade to**, up from " + $current + ".\n" +
                      (if $risk == "routine" then
-                        "Routine: no migrations and nothing unusual in the notes. Merging is the whole upgrade.\n"
+                        "Routine: no migrations, nothing unusual in the notes. Merge it to upgrade.\n"
                       elif $risk == "migrations" then
-                        "Brings database migrations. Flux runs them before the rollout, no drain needed; the pull request has the checks.\n"
+                        "Brings database migrations. Flux runs them before the rollout without a drain. The pull request lists the checks.\n"
                       elif $risk == "long" then
-                        "Declares unusually long database migrations. Plan a window and do not merge outside it: merging deploys.\n"
+                        "Declares unusually long database migrations. Plan a window and drain the site before you merge.\n"
                       else
-                        "Could not tell whether it migrates the database. Read the notes before merging: merging deploys.\n"
+                        "The workflow could not tell whether it migrates the database. Read the notes before you merge.\n"
                       end) +
                      "Release notes: " + $notes + "\n" +
                      "Its checks do not start on their own, because a bot opened it.\n" +
