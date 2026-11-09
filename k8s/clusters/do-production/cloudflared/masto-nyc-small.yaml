@@ -42,7 +42,7 @@ spec:
             cpu: "50m"
           limits:
             memory: "128Mi"
-        image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
+        image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
         args:
         - tunnel
         - --config
@@ -109,7 +109,7 @@ spec:
       hostNetwork: true
       initContainers:
         - name: init
-          image: alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+          image: alpine@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
           command:
             - /bin/sh
             - -c
