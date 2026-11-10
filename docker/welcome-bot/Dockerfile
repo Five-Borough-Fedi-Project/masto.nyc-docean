@@ -3,7 +3,7 @@
 # which let the two drift and once paired pydantic 2.14.1 with the pydantic-core
 # that 2.13.5 pins, so the image would not build. Exporting here means the
 # resolver's answer is what gets installed.
-FROM python:3.15@sha256:3d35e8d5e482ef4f6151426e59208ecde73b7a80e88b38c1b098f60662e5fb91 AS requirements
+FROM python:3.15@sha256:8c9a3bf2d6dea60d60a2ae2a07c2b2fb1e7d8daed64b146b6792c74ae0d62ac4 AS requirements
 
 RUN pip install --no-cache-dir poetry==2.5.1 poetry-plugin-export==1.10.1
 
@@ -13,7 +13,7 @@ COPY ./pyproject.toml ./poetry.lock /src/
 
 RUN poetry export --without-hashes --only main -o requirements.txt
 
-FROM python:3.15@sha256:3d35e8d5e482ef4f6151426e59208ecde73b7a80e88b38c1b098f60662e5fb91
+FROM python:3.15@sha256:8c9a3bf2d6dea60d60a2ae2a07c2b2fb1e7d8daed64b146b6792c74ae0d62ac4
 
 WORKDIR /code
 
