@@ -27,6 +27,49 @@
 # good day it last succeeded between 05:00 and 07:00. Checking at 09:00 puts the
 # age at two to four hours when all is well, and at twenty-six to twenty-eight
 # when a single night was missed. Twenty hours sits clear of both.
+#
+# Reading the watched job's status needs the Kubernetes API, which needs a
+# ServiceAccount: the `default` one in this namespace can read nothing, which is
+# how it should stay. The Role below is the narrowest thing that answers "why
+# did it fail": jobs to find the failure, pods to find the container's exit
+# code, pods/log to read what it said. No write verbs, no secrets, and scoped to
+# this namespace by being a Role rather than a ClusterRole.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sync-blocked-email-domains-watchdog
+  namespace: mastodon
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sync-blocked-email-domains-watchdog
+  namespace: mastodon
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sync-blocked-email-domains-watchdog
+  namespace: mastodon
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sync-blocked-email-domains-watchdog
+subjects:
+  - kind: ServiceAccount
+    name: sync-blocked-email-domains-watchdog
+    namespace: mastodon
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -51,6 +94,7 @@ spec:
           name: sync-blocked-email-domains-watchdog
         spec:
           restartPolicy: Never
+          serviceAccountName: sync-blocked-email-domains-watchdog
           containers:
             - name: watchdog
               # Already pinned in k8s/apps/debug/dbg.yaml, so it is one image to
@@ -85,6 +129,13 @@ spec:
                 - -c
                 - |
                   set -eu
+
+                  # jq is in this image and kubectl is not, so the API is queried with curl
+                  # and read with jq. Checked rather than assumed: without it the diagnosis
+                  # below is skipped and the message is built the old way, from integers and
+                  # literals only.
+                  HAVE_JQ=no
+                  command -v jq >/dev/null 2>&1 && HAVE_JQ=yes
 
                   CRONJOB="sync-blocked-email-domains"
                   NS="mastodon"
@@ -128,6 +179,74 @@ spec:
                   echo "FAIL: ${CRONJOB} has not succeeded within $(( MAX_AGE / 3600 ))h."
                   echo "$detail"
 
+                  # Why, if the API will say. kube-state-metrics knows a run did not
+                  # succeed and cannot know more than that, and the watched job keeps
+                  # failedJobsHistoryLimit: 1, so the evidence is gone by the next run.
+                  why=""
+                  logs=""
+                  SA=/var/run/secrets/kubernetes.io/serviceaccount
+                  API=https://kubernetes.default.svc
+
+                  if [ "$HAVE_JQ" = yes ] && [ -r "$SA/token" ]; then
+                    kube() {
+                      curl -sf --max-time 20 --cacert "$SA/ca.crt" \
+                        -H "Authorization: Bearer $(cat "$SA/token")" "${API}$1"
+                    }
+
+                    # Excluding `-watchdog-` matters: this job's own name starts with the
+                    # watched job's name, so without it the watchdog diagnoses itself.
+                    if kube "/apis/batch/v1/namespaces/${NS}/jobs" > /tmp/jobs.json 2>/dev/null; then
+                      job=$(jq -r --arg p "${CRONJOB}-" '
+                        [.items[] | select(.metadata.name | startswith($p))
+                                  | select(.metadata.name | test("-watchdog-") | not)]
+                        | sort_by(.metadata.creationTimestamp) | last | .metadata.name // empty
+                      ' /tmp/jobs.json)
+                    else
+                      job=""
+                      why="The Kubernetes API would not list jobs, so there is no diagnosis."
+                    fi
+
+                    if [ -n "$job" ]; then
+                      why=$(jq -r --arg j "$job" '
+                        [.items[] | select(.metadata.name == $j)] | first as $x
+                        | ($x.status.conditions // [] | map(select(.status == "True"))
+                            | map("\(.type)" + (if (.reason // "") != "" then ": \(.reason)" else "" end)
+                                              + (if (.message // "") != "" then " (\(.message))" else "" end))
+                            | join("; ")) as $c
+                        | "\($j) started \($x.status.startTime // "?"); "
+                          + (if $c == "" then "no conditions reported yet" else $c end)
+                      ' /tmp/jobs.json)
+
+                      if kube "/api/v1/namespaces/${NS}/pods?labelSelector=job-name%3D${job}" \
+                           > /tmp/pods.json 2>/dev/null; then
+                        pod=$(jq -r '[.items[]] | sort_by(.metadata.creationTimestamp)
+                                     | last | .metadata.name // empty' /tmp/pods.json)
+                        if [ -n "$pod" ]; then
+                          why="${why}
+                  $(jq -r '[.items[]] | sort_by(.metadata.creationTimestamp) | last as $p
+                            | (($p.status.containerStatuses // [])[0] // {}) as $c
+                            | (($c.state.terminated // $c.lastState.terminated) // null) as $t
+                            | if $t then "\($p.metadata.name): exit \($t.exitCode)"
+                                        + (if $t.reason then " (\($t.reason))" else "" end)
+                              else "\($p.metadata.name): phase \($p.status.phase // "unknown")" end
+                           ' /tmp/pods.json)"
+
+                          # Redacted before it leaves the cluster. This job holds a Mastodon
+                          # API token and nobody here knows what its image logs -- there is no
+                          # source for it in masto.nyc-docean. Twenty-five characters of
+                          # token alphabet is shorter than any Mastodon token and longer than
+                          # the words in a stack trace; dots and slashes are not in the class,
+                          # so URLs and domain names survive.
+                          logs=$(kube "/api/v1/namespaces/${NS}/pods/${pod}/log?tailLines=30" 2>/dev/null \
+                                   | sed -E 's/[A-Za-z0-9_-]{25,}/[redacted]/g' \
+                                   | tail -c 900 || true)
+                        fi
+                      fi
+                    fi
+                    [ -n "$why" ] && printf '%s\n' "$why"
+                    [ -n "$logs" ] && printf 'last log lines:\n%s\n' "$logs"
+                  fi
+
                   if [ -z "${WEBHOOK:-}" ]; then
                     echo "No webhook configured, so nothing was sent."
                     echo "Set var.discord_ops_webhook and apply, per kubernetes-secrets.tf."
@@ -141,13 +260,26 @@ spec:
                   base="${base%/slack}"
                   base="${base%/github}"
 
-                  # Built with printf rather than jq, which this image may not
-                  # carry. Safe here because every interpolated value is an
-                  # integer or a literal from this file: there is no external
-                  # text to escape out of the payload. Do not interpolate
-                  # anything scraped from the metrics endpoint into this.
-                  text="**${CRONJOB} has not run successfully**\\n${detail}\\nIt holds a Mastodon API token and takes about two hours, scheduled 03:00 UTC daily.\\nNothing collects pod logs, so the run itself is only visible in the cluster: kubectl -n ${NS} get jobs"
-                  printf '{"text":"%s"}' "$text" > /tmp/payload.json
+                  # jq builds the payload when it is there, because the diagnosis and the
+                  # log tail are text from outside this file and printf cannot be trusted
+                  # to escape them into JSON. The printf path below is kept for an image
+                  # without jq, and interpolates nothing external -- which is what the old
+                  # comment here was protecting.
+                  if [ "$HAVE_JQ" = yes ]; then
+                    jq -n --arg cronjob "$CRONJOB" --arg detail "$detail" \
+                          --arg ns "$NS" --arg why "$why" --arg logs "$logs" '
+                      def fence: "```\n" + . + "\n```";
+                      {text: (
+                        "**\($cronjob) has not run successfully**\n"
+                        + $detail + "\n"
+                        + (if $why != "" then $why + "\n"
+                           else "Nothing collects pod logs, so the run is only visible in the cluster: kubectl -n \($ns) get jobs\n" end)
+                        + (if $logs != "" then ($logs | fence) else "" end)
+                      )}' > /tmp/payload.json
+                  else
+                    text="**${CRONJOB} has not run successfully**\\n${detail}\\nNothing collects pod logs, so the run is only visible in the cluster: kubectl -n ${NS} get jobs"
+                    printf '{"text":"%s"}' "$text" > /tmp/payload.json
+                  fi
 
                   code=$(curl -sS -o /tmp/response -w '%{http_code}' \
                     -X POST -H 'Content-Type: application/json' \
