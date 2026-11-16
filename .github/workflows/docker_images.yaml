@@ -279,11 +279,25 @@ jobs:
         run: |
           set -euo pipefail
           short="${SHA:0:7}"
-          branch="automation/image-tags-${short}"
+
+          # One branch, reused, rather than automation/image-tags-${short}.
+          #
+          # A branch per build means a pull request per build and nothing
+          # superseding anything, so the queue grows instead of draining. Five
+          # were open on 2026-11-15, the oldest from 2026-10-22, and behind them
+          # welcome-bot had been running a 2026-10-06 build and timeline-health a
+          # 2026-10-21 one. Every rebuild Renovate prompted in between was
+          # pushed to ghcr and never deployed.
+          #
+          # Force-pushing this branch is safe in a way it would not be on
+          # somebody's branch: the workflow is its only author, and the only
+          # state worth keeping is the newest set of tags. An older commit here
+          # has nothing in it that the new one does not.
+          branch="automation/image-tags"
 
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
+          git checkout -B "$branch"
           git add -- $FILES
 
           printf '%s\n\n%s\n' \
@@ -291,7 +305,7 @@ jobs:
             "The images under docker/ were rebuilt and pushed by the run for ${SHA}. Without this the manifests keep referencing the previous commit and the rebuild is never deployed. Both cluster overlays were built and checked for unpinned images before this branch was pushed." \
             > /tmp/msg
           git commit -F /tmp/msg
-          git push -u origin "$branch"
+          git push -f -u origin "$branch"
 
           {
             echo "Automated. The run for \`${SHA}\` rebuilt and pushed every image under \`docker/\`, and these manifests still referenced the previous commit."
@@ -307,7 +321,18 @@ jobs:
           # off here. It is on now, so a refusal is a real error rather than the
           # usual outcome -- but the branch is still the part that matters, so a
           # refusal is reported and the run still passes.
-          if gh pr create --base main --head "$branch" \
+          # The branch is reused, so a pull request may already be open on it;
+          # the force-push above has already brought it up to date and opening a
+          # second one would fail.
+          existing=$(gh pr list --head "$branch" --state open \
+                       --json number --jq '.[0].number // empty' || true)
+          if [ -n "$existing" ]; then
+            echo "Updated pull request #${existing} to ${short}." >> "$GITHUB_STEP_SUMMARY"
+            gh pr edit "$existing" \
+              --title "k8s: point first-party images at ${short}" \
+              --body-file /tmp/body || \
+              echo "::warning::Could not retitle #${existing}; its branch is current regardless."
+          elif gh pr create --base main --head "$branch" \
                --title "k8s: point first-party images at ${short}" \
                --assignee "$ACTOR" --body-file /tmp/body; then
             echo "Pull request opened." >> "$GITHUB_STEP_SUMMARY"
