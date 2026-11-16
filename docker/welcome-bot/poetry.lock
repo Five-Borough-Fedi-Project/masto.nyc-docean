@@ -263,18 +263,19 @@ files = [
 
 [[package]]
 name = "fastapi"
-version = "0.162.3"
+version = "0.163.1"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
-python-versions = ">=3.10"
+python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "fastapi-0.162.3-py3-none-any.whl", hash = "sha256:2db4a90df7bce3814a0b1003e8cf3f4f0b3d2937cffb04f623672b14a45ef750"},
-    {file = "fastapi-0.162.3.tar.gz", hash = "sha256:3efb8dfa3ca546d0b4da484cd19ff97e3ca0a67d34a6fefb05a45faabcb141ed"},
+    {file = "fastapi-0.163.1-py3-none-any.whl", hash = "sha256:68f2d8050f5c3583121c0d203046cc7def5c16a7d6c43a0e7707a8ea610fe2d3"},
+    {file = "fastapi-0.163.1.tar.gz", hash = "sha256:3d364b02a68b67292e833ff2dfed3b8dc3aeadf73e271c15316c6c166668792f"},
 ]
 
 [package.dependencies]
 annotated-doc = ">=0.0.2"
+anyio = ">=4.1.0"
 opentelemetry-api = ">=1.44.0"
 pydantic = ">=2.9.0"
 starlette = ">=0.46.0"
@@ -679,4 +680,4 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "bced0358cd00538057e51ced87c5b71863fe6203b23c77f88105def65aef4af6"
+content-hash = "5deab1fe36d11dd5d1bc40b20e79d055733158c966da4098e54b3f5017086f2a"
