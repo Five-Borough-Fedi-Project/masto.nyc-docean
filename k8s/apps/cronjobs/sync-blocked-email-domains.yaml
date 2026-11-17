@@ -18,10 +18,22 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
-      # 115 minutes measured, so four hours is the point past which it is stuck
-      # rather than slow. Same reasoning as postgres-backup: with Forbid and no
-      # deadline, one hung run silences every later one.
-      activeDeadlineSeconds: 14400
+      # Raised from 14400 for the one-time removal drain. The 115 minutes this
+      # was sized on was measured while every removal silently failed: the
+      # script deleted by domain name against a route that resolves
+      # EmailDomainBlock.find(params[:id]), so to_remove never drained and each
+      # night retried every domain upstream had ever dropped. The run took 235
+      # minutes on 2026-11-12 and has exceeded four hours every night since.
+      #
+      # Fixing the delete does not make the drain cheaper: a successful destroy!
+      # costs the same request as today's 404 plus an audit row, so it is
+      # slower per call. Eight hours covers that one run with room, and still
+      # lands well before the next 03:00 schedule under Forbid.
+      #
+      # Bring this back down once a drained run has been measured. Steady state
+      # should be roughly 543 pagination requests plus the day's new domains,
+      # nothing like four hours.
+      activeDeadlineSeconds: 28800
       # The run on 2026-08-31 failed and retried to the default limit of six.
       # At roughly two hours per attempt that is most of a day spent failing.
       backoffLimit: 1
