@@ -53,7 +53,7 @@ spec:
                   cpu: "50m"
                 limits:
                   memory: "512Mi"
-              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/sync-blocked-email-domains@sha256:94096131649d8c36030ee0cc117cd99a442facee138eedd802526c812e4f2ad1
+              image: ghcr.io/five-borough-fedi-project/masto.nyc-docean/sync-blocked-email-domains@sha256:552645cf33f5831557946064ea4caa28591daef16a8ec215749a52ce9f6971fc
               imagePullPolicy: IfNotPresent
               env:
               - name: "MASTODON_HOST"
