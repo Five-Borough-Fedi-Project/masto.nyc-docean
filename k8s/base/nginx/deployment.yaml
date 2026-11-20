@@ -53,7 +53,7 @@ spec:
             limits:
               memory: "384Mi"
               ephemeral-storage: "2Gi"
-          image: nginx:1.31.2-alpine3.23-slim@sha256:dd722b8ee8794f3c273bfaf8b5351b0652a68ccd73c17e5f0d029857a58f25ef
+          image: nginx:1.31.9-alpine3.24-slim@sha256:5bfced78d24d644270bedb0a9968697042e38d5c03fb6354603df025279c1cbe
           ports:
           - containerPort: 80
             name: http
